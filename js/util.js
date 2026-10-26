@@ -35,6 +35,9 @@
   U.indexHeaders = (row) => { const ix = {}; row.forEach((h, i) => { const k = U.norm(h); if (k && !(k in ix)) ix[k] = i; }); return ix; };
   U.findCol = (ix, ...pats) => { for (const p of pats) { for (const k of Object.keys(ix)) { if (p instanceof RegExp ? p.test(k) : k === U.norm(p)) return ix[k]; } } return -1; };
 
+  /* class from wording; rules = [[regex, class], ...] */
+  U.inferClass = (text, rules) => { const t = String(text || ""); for (const [re, cls] of rules) { try { if (new RegExp(re, "i").test(t)) return cls; } catch (e) { /* bad regex in settings */ } } return null; };
+
   U.hash = (u8) => { let h1 = 0xdeadbeef, h2 = 0x41c6ce57; for (let i = 0; i < u8.length; i++) { const c = u8[i]; h1 = Math.imul(h1 ^ c, 2654435761); h2 = Math.imul(h2 ^ c, 1597334677); } h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909); h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909); return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16) + ":" + u8.length; };
 
   U.classSort = (a, b) => (a === "NYC") - (b === "NYC") || (a < b ? -1 : a > b ? 1 : 0);   // posted journals list NYC last

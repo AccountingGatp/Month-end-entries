@@ -4,6 +4,8 @@ const fs = require("fs"), path = require("path");
 globalThis.ME = {}; globalThis.XLSX = require("../js/vendor/xlsx.full.min.js");
 for (const f of ["config", "util", "journal", "engine/io", "engine/gyg", "engine/channels", "engine/books", "engine/accruals"]) require("../js/" + f + ".js");
 const posted = require("./data/posted_journals.json"); const S = JSON.parse(JSON.stringify(ME.DEFAULTS)); const U = ME.U;
+// FX is fetched live in the app; here the rates the team posted for August are fed in so the journal can be compared exactly
+S.fx = { "2026-08": { EUR: 1.1593, GBP: 1.3541 }, "2026-09": { EUR: 1.1512, GBP: 1.3416 } };
 const [gygDir, grpDir, abnb, dep, pdfDir] = process.argv.slice(2);
 let fail = 0;
 const ok = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) fail++; };

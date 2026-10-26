@@ -42,16 +42,18 @@
       "61752": "Empire Tours:Chicago:Chicago G&G", "307462": "Empire Tours:Chicago", "264454": "Empire Tours:Charleston",
       "701238": "Empire Tours:Paris", "248305": "NYC"
     },
-    gygInvoiceToClass: {   // invoices that cannot be classed from product names (Chicago has two accounts)
-      "000100711640": "Empire Tours:Chicago", "000100715070": "Empire Tours:Chicago:Chicago G&G",
-      "000100721721": "Empire Tours:Chicago", "000100764378": "Empire Tours:Chicago",
-      "000100779771": "Empire Tours:Chicago:Chicago G&G", "000100792941": "Empire Tours:Chicago"
-    },
-    gygProductKeywords: [
-      ["Amsterdam", "Empire Tours:Amsterdam"], ["Paris", "Empire Tours:Paris"], ["London", "Empire Tours:London"],
-      ["Charleston", "Empire Tours:Charleston"], ["Washington", "Empire Tours:Washington DC"],
-      ["Arlington", "Empire Tours:Washington DC"], ["Capitol Hill", "Empire Tours:Washington DC"],
-      ["New York", "NYC"], ["NYC", "NYC"]
+    gygInvoiceToClass: {},   // filled in as you confirm classes on screen (remembered in this browser)
+    /* Class detection by wording (regex = class), first match wins. Used for GYG product names, Groupon payable names and
+       Airbnb listings when there is no exact entry. Validated against the August 2026 GYG journal. */
+    classRules: [
+      ["chicago.*gangster|gangster.*chicago", "Empire Tours:Chicago:Chicago G&G"],
+      ["nyc|new york|chinatown|little italy|brooklyn|manhattan", "NYC"],
+      ["chicago", "Empire Tours:Chicago"],
+      ["amsterdam", "Empire Tours:Amsterdam"], ["paris", "Empire Tours:Paris"],
+      ["london|churchill|westminster|buckingham|jack the ripper", "Empire Tours:London"],
+      ["charleston", "Empire Tours:Charleston"],
+      ["washington|arlington|capitol hill|national mall|\bdc\b", "Empire Tours:Washington DC"],
+      ["gangsters", "Empire Tours:Chicago:Chicago G&G"]
     ],
     groupPayableToClass: {
       "empire tours and productions": "Empire Tours:Chicago",
@@ -80,7 +82,6 @@
     shoreline: { sharePct: 70, excludePatterns: ["90"], exclude75: false },
     jonathan: { ratePct: 15, basis: 365 },
     variancePct: 30,
-    fx: { "2026-08": { EUR: 1.1593, GBP: 1.3541 }, "2026-09": { EUR: 1.1512, GBP: 1.3416 } },
     history: { gyg: { "2026-08": 4384605 } }   // baseline totals in cents for the 30% check
   };
 })(typeof window !== "undefined" ? window : globalThis);

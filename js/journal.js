@@ -3,7 +3,7 @@
 
   class Journal {
     constructor(key, title, journalNo, date) {
-      Object.assign(this, { key, title, journalNo, date, lines: [], notes: [], warnings: [], errors: [], meta: {} });
+      Object.assign(this, { key, title, journalNo, date, lines: [], notes: [], warnings: [], errors: [], fixes: [], meta: {} });
     }
     line(account, { debit = null, credit = null, description = "", name = "", cls = "" } = {}) {
       this.lines.push({ account, debit, credit, description, name, cls }); return this;

@@ -1,49 +1,17 @@
-# Month-End Desk
+# Empire Tours month-end automation (static site)
 
-Prepares Empire Tours' recurring month-end journals from the raw reports, following the *Month-End Entries SOP*.
-It is a static site: **everything runs in the browser tab**. No file is uploaded anywhere and nothing is posted to QuickBooks.
-You download each journal and import it into QBO by hand, as the SOP requires.
+Drop all of the month's files in one place, press **Process month-end**, download the QBO import files.
 
-## Entries
+## Flow
+1. Pick the closing month (top right).
+2. Drop every report at once (xlsx, csv, pdf or a .zip). Each file is recognised automatically: GYG invoices and PDFs, Groupon, Airbnb, depreciation tracker, Xola export, SIA workbook, Ventrata, Viator.
+3. Type the few numbers that only exist in emails/QBO (Jonathan balance, ad spend, Connor's figure, SIA balance).
+4. **Process**. Live ECB exchange rates are fetched from Frankfurter, classes are detected from product names, accounts and saved choices, every SOP journal is built and checked (balance, allowed classes, 30% variance).
+5. Review, then download the zip (.xlsx per journal, QBO CSV per SOP section 4, close report). Import into QBO by hand; nothing is ever posted.
 
-| SOP | Entry | Input |
-|---|---|---|
-| 3.1 | GetYourGuide | `GIS-*.xlsx` invoices (+ PDFs, or a .zip) |
-| 3.1 | Groupon | `PAYMENT_DETAILS*.xlsx` exports |
-| 3.1 | Airbnb | Transaction History `.csv` |
-| 3.1 | Viator | typed or pasted rows (accounts still open) |
-| 3.2 | Jonathan loan interest | balance + movements from QBO 23021 |
-| 3.3 | 23014 SIA interest | balance and rate, amount, or the amortization workbook. Makes the accrual and its reversal |
-| 3.4 | Depreciation | Garcia tracker `.xlsx` |
-| 3.5 | CFL accrual (estimate, and actual with reversal) | Xola Events Export `.xlsx`, ad spend, Connor's figures |
-| 3.5 | Shoreline accrual | Ventrata detail report or typed revenue |
-| open | Amortization (80000) | typed amount, once the source is known |
-
-Outputs: the posted layout (`ACCOUNT, DEBITS, CREDITS, DESCRIPTION, NAME, LOCATION, CLASS`) per journal as `.xlsx`, and a QBO
-journal-import `.csv` (SOP section 4: sequential JournalNo, date on the first line of each journal).
-Every journal is marked **OK / Review / Blocked**. A blocked journal cannot be downloaded.
-
-## Deploy
-
-**GitHub Pages:** push to `main`. Settings > Pages > Source: *GitHub Actions*. The included workflow publishes the site.
-
-**Vercel:** import the repo. Framework preset *Other*, no build command, output directory `.`. `vercel.json` adds security headers.
-
-**Locally:** `npm start`, then open http://localhost:8080 (or just open `index.html`).
-
-All libraries (SheetJS, JSZip, pdf.js) are bundled in `js/vendor`, so the site makes no third-party requests. The only network call is the optional
-*Fetch ECB monthly average* button, which asks `api.frankfurter.dev` for the month's rates.
-
-## Tests
-
-`tests/regression.test.js` rebuilds journals from the real reports and compares them line by line with the journals that were actually posted
-(`tests/data/posted_journals.json`), and checks the SOP's worked examples (CFL 341,250.00 → 262,762.50 → 222,773.97; Jonathan workbook months).
-Real reports are not in the repo. Point the test at them:
-
-    GYG_DIR=... GROUPON_DIR=... AIRBNB_CSV=... DEP_XLSX=... npm test
-
-## Settings and open items
-
-Account names, class maps, rates and FX live in **Settings** (stored in the browser; export/import as JSON). Items the SOP leaves open (Viator accounts, SIA
-accounts, the 80000 amortization, the 75-minute tour double count) are flagged on screen and some block the journal until set.
-Do not commit real customer reports to the repo.
+## Notes
+- Exchange rates are never stored; if the service is unreachable the last fetched rates for that month are used (labelled Cached) or you can type them.
+- Everything runs in the browser; files never leave it. Settings and remembered classes live in localStorage.
+- Open SOP items (Viator accounts, SIA accounts, 80000 amortization source, CFL base discrepancy) are listed on the Checklist tab.
+- Deploy: Vercel (connected to GitHub) (vercel.json, no build). Local: `python3 -m http.server`.
+- Tests: `node tests/regression.test.js <gyg_dir> <groupon_dir> <airbnb.csv> <dep.xlsx> [pdf_text_dir]`.

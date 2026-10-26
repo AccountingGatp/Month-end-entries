@@ -46,12 +46,12 @@
       if (!cls && settings.gygInvoiceToClass[inv]) { cls = settings.gygInvoiceToClass[inv]; how = "saved invoice map"; }
       if (!cls && c.prod >= 0) {
         const hits = {};
-        data.forEach((r) => { const p = String(r[c.prod] || "").toLowerCase(); for (const [kw, k] of settings.gygProductKeywords) if (p.includes(kw.toLowerCase())) { hits[k] = (hits[k] || 0) + 1; break; } });
+        data.forEach((r) => { const k = U.inferClass(r[c.prod], settings.classRules); if (k) hits[k] = (hits[k] || 0) + 1; });
         const top = Object.entries(hits).sort((a, b) => b[1] - a[1])[0];
-        if (top && top[1] / data.length > 0.5) { cls = top[0]; how = "inferred from product names"; inferred.push(`${inv} → ${cls}`); }
+        if (top && top[1] / data.length > 0.5) { cls = top[0]; how = "detected from product names"; if (!e.tied) inferred.push(`${inv} → ${cls}`); }
       }
       e.cls = cls || ""; e.classSource = cls ? how : "";
-      if (!cls) { j.errors.push(`GIS-${inv}: class not found. Pick it in the invoice table (Chicago has two accounts) or add the PDF.`); table.push(e); continue; }
+      if (!cls) { j.errors.push(`GIS-${inv}: class not found. Pick it below or add the PDF.`); j.fixes.push({ type: "gyg", key: inv, label: `GIS-${inv}` }); table.push(e); continue; }
       if (cls === "NYC") nyc.push(inv);
       const r = fx(e.currency); if (!r) { table.push(e); continue; }
       e.rate = r; e.usd = e.currency === "USD" ? e.comm : U.mulRound(e.comm, r); e.included = true;
@@ -60,7 +60,7 @@
       table.push(e);
     }
     if (noPdf.length) j.warnings.push(`No PDF added for ${noPdf.length} invoice(s) (${noPdf.map((x) => "GIS-" + x).join(", ")}). They are not tied to the invoice to the penny and their class is not confirmed by account number.`);
-    if (inferred.length) j.warnings.push(`Class inferred from product names only for: ${inferred.join("; ")}. Confirm with the PDF account number.`);
+    if (inferred.length) j.warnings.push(`Class detected from product names (not yet confirmed by a PDF account number) for: ${inferred.join("; ")}. Confirm with the PDF account number.`);
     if (nyc.length) j.warnings.push(`NYC account 248305 (${nyc.map((x) => "GIS-" + x).join(", ")}): flag for entity review.`);
     let total = 0;
     for (const cls of Object.keys(byClass).sort(U.classSort)) {

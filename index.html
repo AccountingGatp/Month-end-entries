@@ -4,23 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Month-End Desk</title>
-<meta name="description" content="Prepares Empire Tours month-end journals in the browser. Nothing is uploaded or posted.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231f5f4a'/%3E%3Cpath d='M8 10h16M8 16h16M8 22h10' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+<meta name="description" content="Drop the month's reports, press Process, get every Empire Tours month-end journal. Runs in your browser; nothing is uploaded or posted.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231f5f4a'/%3E%3Cpath d='M8 11h16M8 16h16M8 21h10' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
-<div class="shell">
-  <aside class="side" aria-label="Entries">
-    <div class="brand"><span class="mark" aria-hidden="true"></span><div><b>Month-End Desk</b><small>Empire Tours · GATP</small></div></div>
-    <label class="monthpick">Closing month
-      <input type="month" id="month" aria-label="Closing month">
-    </label>
-    <nav id="nav"></nav>
-    <p class="privacy">Everything runs in this browser tab. No file is uploaded and nothing is posted to QuickBooks.</p>
-  </aside>
-  <main id="main" tabindex="-1"></main>
-</div>
+<header class="top">
+  <div class="brand"><span class="mark" aria-hidden="true"></span><div><b>Month-End Desk</b><small>Empire Tours · GATP Solutions</small></div></div>
+  <label class="monthpick"><span>Closing month</span><input type="month" id="month" aria-label="Closing month"></label>
+  <nav id="tabs" aria-label="Pages"></nav>
+</header>
+<main id="main" tabindex="-1"></main>
 <div id="toast" role="status" aria-live="polite"></div>
 
 <script src="js/vendor/xlsx.full.min.js"></script>
