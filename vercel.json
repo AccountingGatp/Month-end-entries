@@ -1,0 +1,10 @@
+{
+  "cleanUrls": true,
+  "headers": [
+    { "source": "/(.*)", "headers": [
+      { "key": "X-Content-Type-Options", "value": "nosniff" },
+      { "key": "Referrer-Policy", "value": "no-referrer" },
+      { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' 'unsafe-eval' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://api.frankfurter.dev; object-src 'none'; base-uri 'none'; form-action 'none'" }
+    ]}
+  ]
+}

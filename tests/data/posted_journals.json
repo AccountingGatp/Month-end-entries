@@ -1,0 +1,262 @@
+{
+ "dep": [
+  {
+   "account": "81000 Depreciation expenses",
+   "debit": 79958,
+   "credit": null,
+   "description": "",
+   "name": "",
+   "cls": "Empire Tours:Administrative"
+  },
+  {
+   "account": "15150 Accumulated depreciation",
+   "debit": null,
+   "credit": 79958,
+   "description": "",
+   "name": "",
+   "cls": "Empire Tours:Administrative"
+  },
+  {
+   "account": "81000 Depreciation expenses",
+   "debit": 53333,
+   "credit": null,
+   "description": "",
+   "name": "",
+   "cls": "Empire Tours:SIA"
+  },
+  {
+   "account": "15150 Accumulated depreciation",
+   "debit": null,
+   "credit": 53333,
+   "description": "",
+   "name": "",
+   "cls": "Empire Tours:SIA"
+  },
+  {
+   "account": "81000 Depreciation expenses",
+   "debit": 61333,
+   "credit": null,
+   "description": "",
+   "name": "",
+   "cls": "Empire Tours:SIA"
+  },
+  {
+   "account": "15150 Accumulated depreciation",
+   "debit": null,
+   "credit": 61333,
+   "description": "",
+   "name": "",
+   "cls": "Empire Tours:SIA"
+  }
+ ],
+ "jonathan": [
+  {
+   "account": "60230 Interest paid",
+   "debit": 127397,
+   "credit": null,
+   "description": "Accrued interest on mortgage balance for August 2026",
+   "name": "",
+   "cls": "Empire Tours:Administrative"
+  },
+  {
+   "account": "21091 Accrued Interest",
+   "debit": null,
+   "credit": 127397,
+   "description": "",
+   "name": "",
+   "cls": "Empire Tours:Administrative"
+  }
+ ],
+ "cfl": [
+  {
+   "account": "50015 Cost of Goods Sold:Costs of Goods Sold - Boats",
+   "debit": 30638743,
+   "credit": null,
+   "description": "",
+   "name": "CHICAGO FROM THE LAKE, LTD_CFL",
+   "cls": "Empire Tours:Chicago:Chicago Boats"
+  },
+  {
+   "account": "60017 Advertising & marketing:Marketing",
+   "debit": null,
+   "credit": 3998853,
+   "description": "",
+   "name": "CHICAGO FROM THE LAKE, LTD_CFL",
+   "cls": "Empire Tours:Chicago:Chicago Boats"
+  },
+  {
+   "account": "20000 Accounts Payable (A/P)",
+   "debit": null,
+   "credit": 26639890,
+   "description": "",
+   "name": "CHICAGO FROM THE LAKE, LTD_CFL",
+   "cls": "Empire Tours:Chicago:Chicago Boats"
+  }
+ ],
+ "gyg": [
+  {
+   "account": "40002.1 Sales Revenue - Xola:Processing Fees:Processing Fees - Getyourguide",
+   "debit": 66167,
+   "credit": null,
+   "description": "GYG commission August 2026 - Empire Tours:Amsterdam (GIS-000100735474)",
+   "name": "GetYourGuide Deutschland GmbH",
+   "cls": "Empire Tours:Amsterdam"
+  },
+  {
+   "account": "40002.1 Sales Revenue - Xola:Processing Fees:Processing Fees - Getyourguide",
+   "debit": 39453,
+   "credit": null,
+   "description": "GYG commission August 2026 - Empire Tours:Charleston (GIS-000100722481)",
+   "name": "GetYourGuide Deutschland GmbH",
+   "cls": "Empire Tours:Charleston"
+  },
+  {
+   "account": "40002.1 Sales Revenue - Xola:Processing Fees:Processing Fees - Getyourguide",
+   "debit": 1164092,
+   "credit": null,
+   "description": "GYG commission August 2026 - Empire Tours:Chicago (GIS-000100711640, GIS-000100721721)",
+   "name": "GetYourGuide Deutschland GmbH",
+   "cls": "Empire Tours:Chicago"
+  },
+  {
+   "account": "40002.1 Sales Revenue - Xola:Processing Fees:Processing Fees - Getyourguide",
+   "debit": 407026,
+   "credit": null,
+   "description": "GYG commission August 2026 - Empire Tours:Chicago:Chicago G&G (GIS-000100715070)",
+   "name": "GetYourGuide Deutschland GmbH",
+   "cls": "Empire Tours:Chicago:Chicago G&G"
+  },
+  {
+   "account": "40002.1 Sales Revenue - Xola:Processing Fees:Processing Fees - Getyourguide",
+   "debit": 1705496,
+   "credit": null,
+   "description": "GYG commission August 2026 - Empire Tours:London (GIS-000100747484)",
+   "name": "GetYourGuide Deutschland GmbH",
+   "cls": "Empire Tours:London"
+  },
+  {
+   "account": "40002.1 Sales Revenue - Xola:Processing Fees:Processing Fees - Getyourguide",
+   "debit": 116911,
+   "credit": null,
+   "description": "GYG commission August 2026 - Empire Tours:Paris (GIS-000100743217)",
+   "name": "GetYourGuide Deutschland GmbH",
+   "cls": "Empire Tours:Paris"
+  },
+  {
+   "account": "40002.1 Sales Revenue - Xola:Processing Fees:Processing Fees - Getyourguide",
+   "debit": 514033,
+   "credit": null,
+   "description": "GYG commission August 2026 - Empire Tours:Washington DC (GIS-000100724518)",
+   "name": "GetYourGuide Deutschland GmbH",
+   "cls": "Empire Tours:Washington DC"
+  },
+  {
+   "account": "40002.1 Sales Revenue - Xola:Processing Fees:Processing Fees - Getyourguide",
+   "debit": 371427,
+   "credit": null,
+   "description": "GYG commission August 2026 - NYC (GIS-000100716551)",
+   "name": "GetYourGuide Deutschland GmbH",
+   "cls": "NYC"
+  },
+  {
+   "account": "10032.3 Sales Clearing Account:GYG Sales",
+   "debit": null,
+   "credit": 4384605,
+   "description": "GYG commission clearing August 2026",
+   "name": "GetYourGuide Deutschland GmbH",
+   "cls": "Empire Tours:Administrative"
+  }
+ ],
+ "groupon": [
+  {
+   "account": "40002.4 Sales Revenue - Xola:Processing Fees:Processing Fees - Groupon",
+   "debit": 5969,
+   "credit": null,
+   "description": "September 2026 Groupon commission - Empire Tours:Chicago",
+   "name": "",
+   "cls": "Empire Tours:Chicago"
+  },
+  {
+   "account": "40002.4 Sales Revenue - Xola:Processing Fees:Processing Fees - Groupon",
+   "debit": 15532,
+   "credit": null,
+   "description": "September 2026 Groupon commission - Empire Tours:Chicago:Chicago G&G",
+   "name": "",
+   "cls": "Empire Tours:Chicago:Chicago G&G"
+  },
+  {
+   "account": "40002.4 Sales Revenue - Xola:Processing Fees:Processing Fees - Groupon",
+   "debit": 41865,
+   "credit": null,
+   "description": "September 2026 Groupon commission - Empire Tours:Washington DC",
+   "name": "",
+   "cls": "Empire Tours:Washington DC"
+  },
+  {
+   "account": "40002.4 Sales Revenue - Xola:Processing Fees:Processing Fees - Groupon",
+   "debit": 169280,
+   "credit": null,
+   "description": "September 2026 Groupon commission - NYC",
+   "name": "",
+   "cls": "NYC"
+  },
+  {
+   "account": "10032.2 Sales Clearing Account:Groupon Sales",
+   "debit": null,
+   "credit": 232646,
+   "description": "September 2026 Groupon commission clearing",
+   "name": "",
+   "cls": ""
+  }
+ ],
+ "airbnb": [
+  {
+   "account": "40002.5 Sales Revenue - Xola:Processing Fees:Processing Fees - Airbnb",
+   "debit": 5192,
+   "credit": null,
+   "description": "Airbnb commission September 2026 - Empire Tours:Charleston (2 experiences)",
+   "name": "",
+   "cls": "Empire Tours:Charleston"
+  },
+  {
+   "account": "40002.5 Sales Revenue - Xola:Processing Fees:Processing Fees - Airbnb",
+   "debit": 11391,
+   "credit": null,
+   "description": "Airbnb commission September 2026 - Empire Tours:Chicago:Chicago G&G (8 experiences)",
+   "name": "",
+   "cls": "Empire Tours:Chicago:Chicago G&G"
+  },
+  {
+   "account": "40002.5 Sales Revenue - Xola:Processing Fees:Processing Fees - Airbnb",
+   "debit": 959,
+   "credit": null,
+   "description": "Airbnb commission September 2026 - Empire Tours:London (1 experiences)",
+   "name": "",
+   "cls": "Empire Tours:London"
+  },
+  {
+   "account": "40002.5 Sales Revenue - Xola:Processing Fees:Processing Fees - Airbnb",
+   "debit": 21110,
+   "credit": null,
+   "description": "Airbnb commission September 2026 - Empire Tours:Washington DC (11 experiences)",
+   "name": "",
+   "cls": "Empire Tours:Washington DC"
+  },
+  {
+   "account": "40002.5 Sales Revenue - Xola:Processing Fees:Processing Fees - Airbnb",
+   "debit": 16874,
+   "credit": null,
+   "description": "Airbnb commission September 2026 - NYC (9 experiences)",
+   "name": "",
+   "cls": "NYC"
+  },
+  {
+   "account": "10032.1 Sales Clearing Account:Airbnb Sales",
+   "debit": null,
+   "credit": 55526,
+   "description": "Airbnb commission clearing September 2026",
+   "name": "",
+   "cls": ""
+  }
+ ]
+}
