@@ -108,3 +108,8 @@ code,.mono{font-family:var(--mono);font-size:12.5px}
 #toast.show{opacity:1;transform:translate(-50%,0)}
 @media (max-width:760px){.top{gap:10px}.brand{width:100%}.monthpick span{display:none}.tiles{grid-template-columns:1fr}.jc .amt{margin-left:0}.dock .sp{display:none}.btn.big{width:100%}}
 @media print{.top,.dock,.drop,.processbar{display:none}body{background:#fff}.jc>*{display:block}}
+.sh{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px}
+.sh i{flex:none;width:30px;height:30px;border-radius:50%;background:var(--accent,#1f6f5c);color:#fff;display:grid;place-items:center;font-style:normal;font-weight:700}
+.sh h2{margin:0;font-size:18px}.sh p{margin:2px 0 0;color:var(--muted,#667)}
+details.rule{margin-top:8px}details.rule summary{font-size:13px;color:var(--muted,#667);cursor:pointer}
+.sopdoc h3{margin:18px 0 4px}.sopdoc p{margin:4px 0}

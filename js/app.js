@@ -23,6 +23,10 @@
   const merge = (a, b) => { for (const k of Object.keys(b || {})) { if (b[k] && typeof b[k] === "object" && !Array.isArray(b[k])) a[k] = merge(a[k] && typeof a[k] === "object" ? a[k] : {}, b[k]); else a[k] = b[k]; } return a; };
   let settings = merge(JSON.parse(JSON.stringify(ME.DEFAULTS)), (() => { try { return JSON.parse(LS.get("med-settings") || "{}"); } catch (e) { return {}; } })());
   settings.fx = {};
+  (function enforce() {   // 75-minute tour: Shoreline only, never CFL
+    const t = "75-Minute River Boat Architecture Tour"; settings.cfl.products = settings.cfl.products.filter((x) => !/^75/.test(x));
+    if (!settings.cfl.notCfl.includes(t)) settings.cfl.notCfl.push(t); settings.shoreline.exclude75 = false;
+  })();
   const saveSettings = () => { const c = JSON.parse(JSON.stringify(settings)); delete c.fx; LS.set("med-settings", JSON.stringify(c)); };
 
   const nowD = new Date();
@@ -31,7 +35,7 @@
     files: [], overrides: {}, fx: null, results: {}, processed: false, stale: false, busy: false, progress: [],
     jon: { opening: "", moves: [{ date: "", amt: "" }] }, sia: { balance: "", rate: "5.5", direct: "" },
     cfl: { ad: "", cppFirst: "", baseFirst: "", manualBase: "", total: "", adActual: "", priorGross: "", priorAd: "" },
-    shr: { prod: -1, amt: -1, hdr: 0, manual: "" }, via: { rows: [{ cls: "", gross: "", net: "", diff: "" }] }, amort: { amount: "" }
+    shr: { prod: -1, amt: -1, hdr: 0, manual: "" }, amort: { amount: "" }
   };
   let uid = 0;
 
@@ -52,7 +56,7 @@
     for (let i = 1; i <= doc.numPages; i++) { const c = await (await doc.getPage(i)).getTextContent(); t += c.items.map((x) => x.str).join(" ") + "\n"; }
     return t;
   }
-  const TYPES = { gyg: "GYG invoice (.xlsx)", gygpdf: "GYG invoice PDF", groupon: "Groupon PAYMENT_DETAILS", airbnb: "Airbnb transaction history", depreciation: "Depreciation tracker", xola: "Xola Events Export", sia: "23014 SIA amortization workbook", jonathanwb: "Jonathan interest workbook", shoreline: "Ventrata / Shoreline report", viator: "Viator report", empty: "Empty export (ignored)", unknown: "Not recognised" };
+  const TYPES = { gyg: "GYG invoice (.xlsx)", gygpdf: "GYG invoice PDF", groupon: "Groupon PAYMENT_DETAILS", airbnb: "Airbnb transaction history", depreciation: "Depreciation tracker", xola: "Xola Events Export", sia: "23014 SIA amortization workbook", jonathanwb: "Jonathan interest workbook", shoreline: "Ventrata / Shoreline report", empty: "Empty export (ignored)", unknown: "Not recognised" };
 
   /* recognise a file from its name and contents, so nothing has to be sorted by hand */
   async function classify(it) {
@@ -78,7 +82,7 @@
       else if (rec.sheets.some((s) => /loan calc/i.test(s.name)) || /23014|amortization/i.test(name)) rec.type = "sia";
       else if (rec.sheets.some((s) => /interest accrual/i.test(s.name)) || (/jonathan/i.test(name) && /interest/i.test(name))) rec.type = "jonathanwb";
       else if (/ventrata|shoreline/i.test(name)) rec.type = "shoreline";
-      else if (/viator/i.test(name)) rec.type = "viator";
+     
       return rec;
     }
     return rec;
@@ -119,7 +123,7 @@
   }
 
   /* ================= building every journal ================= */
-  const ORDER = ["gyg", "groupon", "airbnb", "viator", "jonathan", "sia", "depreciation", "cfl", "shoreline", "amort"];
+  const ORDER = ["gyg", "groupon", "airbnb", "jonathan", "sia", "depreciation", "cfl", "shoreline", "amort"];
   const dollars = (s) => (s === "" || s === null ? 0 : cents(s));
   const BUILD = {
     gyg() {
@@ -141,10 +145,6 @@
       return ic ? ME.buildSia(state.month, ic, settings) : [];
     },
     amort() { return state.amort.amount !== "" ? [ME.buildAmort(state.month, dollars(state.amort.amount), settings)] : []; },
-    viator() {
-      const rows = state.via.rows.filter((r) => r.cls && (r.gross !== "" || r.net !== "")).map((r) => ({ cls: r.cls, gross: dollars(r.gross), net: dollars(r.net), diff: dollars(r.diff) }));
-      return rows.length ? [ME.buildViator(state.month, rows, settings)] : [];
-    },
     shoreline() {
       const f = filesOf("shoreline")[0], s = state.shr; let rev = 0;
       if (f && s.prod >= 0 && s.amt >= 0) rev = ME.shoreline.sumRevenue(f.sheets[0], s.hdr, s.prod, s.amt, settings.shoreline).total; else if (s.manual !== "") rev = cents(s.manual);
@@ -275,20 +275,19 @@
       return box;
     }
   };
-  const ENTRY_OF = { gyg: "gyg", groupon: "groupon", airbnb: "airbnb", viator: "viator", jonathan: "jonathan", sia: "sia", depreciation: "depreciation", cfl: "cfl", shoreline: "shoreline", amort: "amort" };
+  const ENTRY_OF = { gyg: "gyg", groupon: "groupon", airbnb: "airbnb", jonathan: "jonathan", sia: "sia", depreciation: "depreciation", cfl: "cfl", shoreline: "shoreline", amort: "amort" };
 
   /* ----- tiles: one per SOP entry, showing what is received and what is still needed ----- */
   const ENTRIES = [
-    { id: "gyg", sop: "3.1", title: "GetYourGuide", hint: "GIS-….xlsx invoices, plus the PDFs for tie-out", types: ["gyg", "gygpdf"] },
-    { id: "groupon", sop: "3.1", title: "Groupon", hint: "PAYMENT_DETAILS exports", types: ["groupon", "empty"] },
-    { id: "airbnb", sop: "3.1", title: "Airbnb", hint: "Transaction History CSV", types: ["airbnb"] },
-    { id: "viator", sop: "3.1", title: "Viator", hint: "Viator advice totals (account still open)", types: ["viator"], inputs: true },
-    { id: "jonathan", sop: "3.2", title: "Jonathan loan interest", hint: "Balance on 23021 from QBO", types: ["jonathanwb"], inputs: true },
-    { id: "sia", sop: "3.3", title: "23014 SIA interest", hint: "Amortization workbook, or balance and rate", types: ["sia"], inputs: true },
-    { id: "depreciation", sop: "3.4", title: "Depreciation", hint: "Garcia depreciation tracker", types: ["depreciation"] },
-    { id: "cfl", sop: "3.5", title: "CFL accrual", hint: "Xola Events Export, ad spend, Connor's figure", types: ["xola"], inputs: true },
-    { id: "shoreline", sop: "3.5", title: "Shoreline accrual", hint: "Ventrata report, or the revenue", types: ["shoreline"], inputs: true },
-    { id: "amort", sop: "open", title: "Amortization (80000)", hint: "Open item: optional until its source is known", types: [], inputs: true }
+    { id: "gyg", sop: "3.1", title: "GetYourGuide", rule: "Book one commission journal per service month. Debit the GYG commission income account by class, credit the GYG clearing account. EUR and GBP invoices use the month-average rate. Invoices are grouped by activity date, so a month is never mixed with another.", hint: "GIS-….xlsx invoices, plus the PDFs for tie-out", types: ["gyg", "gygpdf"] },
+    { id: "groupon", sop: "3.1", title: "Groupon", rule: "Commission = what the customer paid less what Groupon paid out, per class (payable name). Month comes from Date Processed. Voided rows are included.", hint: "PAYMENT_DETAILS exports", types: ["groupon", "empty"] },
+    { id: "airbnb", sop: "3.1", title: "Airbnb", rule: "Experience bookings only. Commission = Airbnb service fee, by listing class. Payout plus fee must equal gross. Compare the payouts to Chase 6673.", hint: "Transaction History CSV", types: ["airbnb"] },
+    { id: "jonathan", sop: "3.2", title: "Jonathan loan interest", rule: "15% a year, simple interest, actual/365, on the daily balance. Take the balance on the 1st from QBO 23021 and list any advances or repayments with their dates.", hint: "Balance on 23021 from QBO", types: ["jonathanwb"], inputs: true },
+    { id: "sia", sop: "3.3", title: "23014 SIA interest", rule: "Accrue one month of interest on the note: principal x rate / 12. The tool also makes the reversal dated the 1st of next month.", hint: "Amortization workbook, or balance and rate", types: ["sia"], inputs: true },
+    { id: "depreciation", sop: "3.4", title: "Depreciation", rule: "Total depreciation for the month from the Garcia tracker, one debit and credit per asset, with the asset class.", hint: "Garcia depreciation tracker", types: ["depreciation"] },
+    { id: "cfl", sop: "3.5", title: "CFL accrual", rule: "Accrue 77% of the CFL tour base (arrival 16th to month end, not Waitlist, Type Order, Status Confirmed, not Get Your Guide) less the ad spend. The 75-minute tour is not CFL: it stays in Shoreline. The 1st to 15th is re-checked against Connor: under 0.5% post, 0.5 to 5% note, over 5% stop.", hint: "Xola Events Export, ad spend, Connor's figure", types: ["xola"], inputs: true },
+    { id: "shoreline", sop: "3.5", title: "Shoreline accrual", rule: "Accrue 70% of the non-90-minute cruise revenue from the Ventrata report. The 75-minute tour is included here, and is not in CFL.", hint: "Ventrata report, or the revenue", types: ["shoreline"], inputs: true },
+    { id: "amort", sop: "open", title: "Amortization (80000)", rule: "Optional. Only if you know the monthly amortization amount.", hint: "Open item: optional until its source is known", types: [], inputs: true }
   ];
   function readiness(id) {
     const n = (...t) => filesOf(...t).length, R = (t) => ({ s: "ready", t }), P = (t) => ({ s: "partial", t }), W = (t) => ({ s: "waiting", t });
@@ -297,7 +296,6 @@
       case "groupon": { const a = n("groupon"); return a ? R(`${a} export${a > 1 ? "s" : ""}${n("empty") ? ` · ${n("empty")} empty ignored` : ""}`) : W("Waiting for the exports"); }
       case "airbnb": return n("airbnb") ? R("CSV received") : W("Waiting for the CSV");
       case "depreciation": return n("depreciation") ? R("Tracker received") : W("Waiting for the tracker");
-      case "viator": return state.via.rows.some((r) => r.cls && (r.gross !== "" || r.net !== "")) ? (settings.accounts.viatorFee ? R("Totals entered") : P("Set the Viator commission account in Settings")) : W("Enter the totals");
       case "jonathan": return state.jon.opening !== "" ? R("Balance entered") : W("Enter the 23021 balance");
       case "sia": return n("sia") ? R("Workbook received") : state.sia.balance !== "" || state.sia.direct !== "" ? R("Balance entered") : W("Workbook or balance needed");
       case "cfl": return state.cfl.total !== "" ? R("Actual entered: reverse and rebook") : n("xola") ? (state.cfl.ad !== "" ? R("Export and ad spend received") : P("Add the ad-spend figure")) : state.cfl.manualBase !== "" ? P("Base typed by hand") : W("Waiting for the Xola export");
@@ -331,33 +329,25 @@
     if (id === "shoreline") {
       const s = state.shr, f = filesOf("shoreline")[0], hdrRow = f ? f.sheets[0].rows[s.hdr] || [] : [];
       const sel = (k, l) => field(l, h("select", { onchange: (e) => { s[k] = +e.target.value; touched(); } }, h("option", { value: -1 }, "(choose)"), hdrRow.map((x, i) => x !== null ? h("option", { value: i, selected: i === s[k] }, String(x)) : null)));
-      return [f ? h("div", { class: "row" }, sel("prod", "Product column"), sel("amt", "Revenue column")) : null, h("div", { class: "row", style: "margin-top:8px" }, field("…or type non-90-minute cruise revenue (USD)", numIn(() => s.manual, (v) => (s.manual = v), "100000.00", 240)),
-        h("label", { class: "check", style: "border:0" }, h("input", { type: "checkbox", checked: settings.shoreline.exclude75, onchange: (e) => { settings.shoreline.exclude75 = e.target.checked; saveSettings(); touched(); } }), h("span", {}, "Leave out the 75-minute tour (it is also in Connor's CFL report)"))),
-        h("p", { class: "hint" }, `${settings.shoreline.sharePct}% of non-90-minute cruise revenue. Separate arrangement from CFL.`)];
-    }
-    if (id === "viator") {
-      const tb = h("tbody", {}); const draw = () => { tb.textContent = ""; state.via.rows.forEach((r, i) => tb.append(h("tr", {},
-        h("td", {}, h("select", { onchange: (e) => { r.cls = e.target.value; touched(); } }, h("option", { value: "" }, "(class)"), settings.classes.allowed.map((c) => h("option", { value: c, selected: c === r.cls }, c)))),
-        h("td", {}, numIn(() => r.gross, (v) => (r.gross = v), "0.00", 110)), h("td", {}, numIn(() => r.net, (v) => (r.net = v), "0.00", 110)), h("td", {}, numIn(() => r.diff, (v) => (r.diff = v), "0.00", 100)),
-        h("td", {}, h("button", { class: "btn small", "aria-label": "Remove row", onclick: () => { state.via.rows.splice(i, 1); if (!state.via.rows.length) state.via.rows.push({ cls: "", gross: "", net: "", diff: "" }); draw(); touched(); } }, "×"))))); }; draw();
-      return [h("div", { class: "scroll" }, h("table", {}, h("thead", {}, h("tr", {}, ["Class", "Viator gross", "Net received", "Price difference", ""].map((c) => h("th", {}, c)))), tb)), h("button", { class: "btn small", onclick: () => { state.via.rows.push({ cls: "", gross: "", net: "", diff: "" }); draw(); } }, "Add row"),
-        h("p", { class: "hint" }, "Commission = gross less net received (an older higher rate counts as commission). The Xola base vs Viator gross difference is its own line. The commission account and class are open items: set the account in Settings.")];
+      return [f ? h("div", { class: "row" }, sel("prod", "Product column"), sel("amt", "Revenue column")) : null, h("div", { class: "row", style: "margin-top:8px" }, field("…or type non-90-minute cruise revenue (USD)", numIn(() => s.manual, (v) => (s.manual = v), "100000.00", 240))),
+        h("p", { class: "hint" }, `${settings.shoreline.sharePct}% of non-90-minute cruise revenue. The 75-minute tour stays in Shoreline (it is not part of CFL).`)];
     }
     if (id === "amort") return [field("Monthly amount (USD)", numIn(() => state.amort.amount, (v) => (state.amort.amount = v), "1925.00", 180)), h("p", { class: "hint" }, "QBO shows 1,925.00 in Aug and Sep 2026 but the workings are not in the notes. Set the accumulated-amortization account in Settings before using this.")];
     return null;
   }
 
   let tileRefs = {};
-  function renderTiles() {
-    tileRefs = {}; const wrap = h("div", { class: "tiles" });
-    for (const e of ENTRIES) {
+  function renderTiles(ids) {
+    const wrap = h("div", { class: "tiles" });
+    for (const e of ENTRIES.filter((x) => ids.includes(x.id))) {
       const st = h("span", { class: "st" }); const body = [];
       const mine = filesOf(...e.types);
       if (mine.length) body.push(h("div", { class: "chips" }, mine.map((f) => h("span", { class: "chip", title: `${f.name} (${TYPES[f.type]})` }, h("span", {}, f.name), h("button", { "aria-label": "Remove " + f.name, onclick: () => { state.files = state.files.filter((x) => x.id !== f.id); state.stale = true; autoShoreline(); renderClose(); } }, "×")))));
       else body.push(h("p", {}, e.hint));
       const inp = e.inputs ? inputsFor(e.id) : null;
-      const det = inp ? h("details", { open: state.openTile === e.id, ontoggle: (ev) => { if (ev.target.open) state.openTile = e.id; } }, h("summary", {}, "Numbers for this entry"), h("div", { style: "margin-top:8px" }, inp)) : null;
-      const t = h("div", { class: "tile" }, h("div", { class: "t" }, h("b", {}, e.title), h("span", { class: "sop" }, e.sop), st), body, det);
+      const t = h("div", { class: "tile" }, h("div", { class: "t" }, h("b", {}, e.title), h("span", { class: "sop" }, "SOP " + e.sop), st), body,
+        inp ? h("div", { style: "margin-top:8px" }, inp) : null,
+        h("details", { class: "rule" }, h("summary", {}, "SOP rule"), h("p", { class: "hint" }, e.rule)));
       tileRefs[e.id] = { t, st }; wrap.append(t);
     }
     updateTileStatus(); return wrap;
@@ -375,21 +365,22 @@
   /* ----- close page ----- */
   function renderProgress() { const p = document.getElementById("progress"); if (!p) return; p.textContent = ""; state.progress.forEach(([l, s]) => p.append(h("div", { class: s }, (s === "ok" ? "✓ " : "… ") + l))); }
   function renderClose() {
-    const m = document.getElementById("main"); m.textContent = "";
+    const m = document.getElementById("main"); m.textContent = ""; tileRefs = {};
     const unk = state.files.filter((f) => f.type === "unknown");
     const n = state.files.length;
-    m.append(h("h1", {}, `Month-end close · ${U.monthLabel(state.month)}`), h("p", { class: "sub" }, "Drop the reports, add the few numbers that only exist in emails and QBO, then press Process. Every journal follows the Month-End Entries SOP, classes and exchange rates are worked out for you, and nothing leaves this browser or touches QuickBooks."));
-    m.append(h("ol", { class: "steps" }, [["1", "Add files", n ? "done" : "on"], ["2", "Check the numbers", n ? "on" : ""], ["3", "Process", state.processed ? "done" : ""], ["4", "Review and download", state.processed ? "on" : ""]].map(([i, l, c]) => h("li", { class: c }, h("i", {}, i), l))));
-    m.append(h("section", { class: "card" }, n ? dropzone(true) : dropzone(false), renderTilesWrap()));
+    m.append(h("h1", {}, `Month-end close · ${U.monthLabel(state.month)}`), h("p", { class: "sub" }, "Three steps. Nothing is posted to QuickBooks; you import the result yourself after review."));
+    const stepHead = (n, t, d) => h("div", { class: "sh" }, h("i", {}, n), h("div", {}, h("h2", {}, t), h("p", {}, d)));
+    m.append(h("section", { class: "card" }, stepHead("1", "Add the reports", "Drop everything at once. Each file is recognised for you."), n ? dropzone(true) : dropzone(false), renderTiles(["gyg", "groupon", "airbnb", "depreciation"])));
+    m.append(h("section", { class: "card" }, stepHead("2", "Type the numbers only you have", "From QBO and the emails. Leave an entry blank to skip it."), renderTiles(["jonathan", "sia", "cfl", "shoreline"]),
+      h("details", { style: "margin-top:12px" }, h("summary", {}, "Optional: Amortization (80000)"), h("div", { style: "margin-top:8px" }, renderTiles(["amort"])))));
     if (unk.length) m.append(h("section", { class: "card" }, h("h2", {}, "Files I could not recognise"), unk.map((f) => h("div", { class: "unk" }, h("b", {}, f.name), h("span", {}, "is a"), h("select", { onchange: (e) => { f.type = e.target.value; if (f.type === "gyg" && !f.rows) f.rows = f.sheets ? f.sheets[0].rows : []; autoShoreline(); state.stale = true; renderClose(); } }, Object.entries(TYPES).filter(([k]) => k !== "empty").map(([k, v]) => h("option", { value: k, selected: k === f.type }, v))), h("button", { class: "btn small", onclick: () => { state.files = state.files.filter((x) => x.id !== f.id); renderClose(); } }, "Remove")))));
-    m.append(h("section", { class: "card" }, h("div", { class: "processbar" }, h("button", { id: "processBtn", class: "btn primary big", disabled: !n || state.busy, onclick: processAll }, state.busy ? "Processing…" : state.processed ? (state.stale ? "Inputs changed. Process again" : "Process again") : "Process month-end"),
-      h("span", { class: "hint", style: "margin:0" }, n ? "Fetches live exchange rates, detects classes, builds every journal and runs the SOP checks." : "Add files to begin.")), h("div", { id: "progress", class: "progress" })));
+    m.append(h("section", { class: "card" }, stepHead("3", "Process", "Gets live exchange rates, picks the classes, builds every journal and runs the SOP checks."), h("div", { class: "processbar" }, h("button", { id: "processBtn", class: "btn primary big", disabled: state.busy, onclick: processAll }, state.busy ? "Processing…" : state.processed ? (state.stale ? "Inputs changed. Process again" : "Process again") : "Process month-end"),
+      h("span", { class: "hint", style: "margin:0" }, n ? "" : "Add files to begin.")), h("div", { id: "progress", class: "progress" })));
     renderProgress();
     if (state.processed) m.append(renderResults());
     renderDock();
   }
-  function renderTilesWrap() { return renderTiles(); }
-
+  
   function renderResults() {
     const box = h("div", { id: "results" }); const js = allJournals();
     if (!js.length) { box.append(h("section", { class: "card" }, h("p", { class: "hint" }, "Nothing could be built yet. Add the inputs shown as waiting above."))); return box; }
@@ -426,16 +417,26 @@
   }
 
   /* ----- checklist page ----- */
-  const CHECKS = ["QBO P&L for the close month vs the previous period (by Classes, then Total Only).", "Balance Sheet at month end vs prior month end.", "Drill into 21090 (Shoreline) and into 20000 A/P for CHICAGO FROM THE LAKE, LTD_CFL to confirm both accruals posted.", "Clearing sub-accounts: Xola (10031) near nil; Viator about one month. Do not test any portal against one month's invoice.", "21085 VAT Payable is flat at 63,220.62 until it clears in September: expected, do not flag.", "21090 carries an unexplained residual of 786.00: known, still unidentified.", "Every new vendor is logged in the New Vendor List and sent to Jonathan weekly; no transaction posts without a vendor.", "Slack reminder on the 4th covers both accruals (CFL and Shoreline).", "Working file attached to each posted journal."];
-  const OPEN = [["Viator report source, commission expense account and class", "open"], ["FX basis for GYG GBP/EUR invoices", "The tool uses the live monthly average of ECB rates. August EUR matches the posted journal exactly; GBP can differ by 0.0001. Confirm with Dhwani."], ["23014 interest account and accrual convention", "open"], ["Source of the 80000 Amortization entry (1,925.00 a month)", "open"], ["75-minute tour: Connor's CFL report vs Shoreline double count", "open"], ["Charters in the second half of the month are missing from the Xola export", "Ask Aanand or Louise for a count at close if the amounts are material."], ["CFL: posted journal (gross 306,387.43, implied base ≈ 397,906) vs SOP example (base 341,250.00)", "Same ad spend in both. Run the real Xola export to see which is right."]];
+  const CHECKS = ["QBO P&L for the close month vs the previous period (by Classes, then Total Only).", "Balance Sheet at month end vs prior month end.", "Drill into 21090 (Shoreline) and into 20000 A/P for CHICAGO FROM THE LAKE, LTD_CFL to confirm both accruals posted.", "Clearing sub-accounts: Xola (10031) should be near nil. Do not test any portal against one month's invoice.", "21085 VAT Payable is flat at 63,220.62 until it clears in September: expected, do not flag.", "21090 carries an unexplained residual of 786.00: known, still unidentified.", "Every new vendor is logged in the New Vendor List and sent to Jonathan weekly; no transaction posts without a vendor.", "Slack reminder on the 4th covers both accruals (CFL and Shoreline).", "Working file attached to each posted journal."];
+  const OPEN = [["FX basis for GYG GBP/EUR invoices", "The tool uses the live monthly average of ECB rates. August EUR matches the posted journal exactly; GBP can differ by 0.0001. Confirm with Dhwani."], ["23014 interest account and accrual convention", "open"], ["Source of the 80000 Amortization entry (1,925.00 a month)", "open"], ["Charters in the second half of the month are missing from the Xola export", "Ask Aanand or Louise for a count at close if the amounts are material."], ["CFL: posted journal (gross 306,387.43, implied base ≈ 397,906) vs SOP example (base 341,250.00)", "Same ad spend in both. Run the real Xola export to see which is right."]];
   function renderChecklist() {
     const m = document.getElementById("main"); m.textContent = ""; m.append(h("h1", {}, "Review before sending to Jonathan"), h("p", { class: "sub" }, "SOP section 5, plus the open items from section 6."));
     const key = "med-checks-" + state.month; let done = {}; try { done = JSON.parse(LS.get(key) || "{}"); } catch (e) { /* ignore */ }
     m.append(h("section", { class: "card" }, h("h2", {}, `Checklist for ${U.monthLabel(state.month)}`), CHECKS.map((t, i) => h("label", { class: "check" }, h("input", { type: "checkbox", checked: !!done[i], onchange: (e) => { done[i] = e.target.checked; LS.set(key, JSON.stringify(done)); } }), h("span", {}, t)))));
-    const vb = { balance: "", sales: "" }, res = h("p", { class: "hint" });
-    const upd = () => { if (vb.balance === "") { res.textContent = ""; return; } const r = ME.viatorBalanceCheck(cents(vb.balance), cents(vb.sales)); res.textContent = r.text; res.style.color = r.level === "stop" ? "var(--bad)" : "var(--ok)"; };
-    m.append(h("section", { class: "card" }, h("h2", {}, "Viator clearing (10032) balance test"), h("div", { class: "row" }, field("10032 balance at month end (USD)", numIn(() => vb.balance, (v) => { vb.balance = v; upd(); }, "", 200)), field("Viator sales for the month (USD)", numIn(() => vb.sales, (v) => { vb.sales = v; upd(); }, "", 200))), res, h("p", { class: "hint" }, "Nil means all settled. About one month is expected (Viator pays a month in arrears). Two months or more means a missing advice or a late payment. Negative means cash coded with no sale behind it.")));
     m.append(h("section", { class: "card" }, h("h2", {}, "Open items before sign-off"), h("table", {}, h("tbody", {}, OPEN.map(([a, b]) => h("tr", {}, h("td", {}, a), h("td", {}, b === "open" ? h("span", { class: "tag review" }, "Open") : b)))))));
+  }
+
+  /* ----- SOP page: the month-end SOP, section by section, as the tool applies it ----- */
+  function renderSop() {
+    const m = document.getElementById("main"); m.textContent = "";
+    m.append(h("h1", {}, "Month-End Entries SOP"), h("p", { class: "sub" }, "The SOP as this tool applies it. Entries are dated the last day of the month; reversals the 1st of next month. Journals are imported into QBO by hand, never posted directly."));
+    const box = h("section", { class: "card sopdoc" });
+    box.append(h("h2", {}, "How to run the month"), h("ol", {}, ["Pick the closing month and drop every report on the Close tab.", "Type the numbers only you have: Jonathan balance, SIA interest, CFL ad spend and Connor's figure, Shoreline revenue.", "Press Process. Live exchange rates, classes and all checks run for you.", "Review any journal marked Review or Blocked.", "Download, import into QBO, attach the working file, then go through the Checklist tab."].map((t) => h("li", {}, t))));
+    for (const e of ENTRIES.filter((x) => x.sop !== "open")) box.append(h("h3", {}, `${e.sop}  ${e.title}`), h("p", {}, e.rule), h("p", { class: "hint" }, `You provide: ${e.hint}.`));
+    box.append(h("h3", {}, "4  QBO import format"), h("p", {}, "The download includes a CSV with sequential journal numbers and the date on each journal's first line only. The same journals are also given as .xlsx in the posted layout."));
+    box.append(h("h3", {}, "5  Review"), h("p", {}, "Use the Checklist tab: P&L and Balance Sheet against the prior month, drill into the 21090 and CFL payable accounts, clearing accounts, new vendors, and the working file attached to each journal."));
+    box.append(h("h3", {}, "Checks the tool runs on every journal"), h("p", {}, "Debits equal credits, only allowed classes, and a 30% variance test against last month's saved total."));
+    m.append(box);
   }
 
   /* ----- settings page ----- */
@@ -446,8 +447,8 @@
     const m = document.getElementById("main"); m.textContent = "";
     m.append(h("h1", {}, "Settings"), h("p", { class: "sub" }, "Account names, class rules and rates. Saved in this browser only. Classes are normally detected automatically; this is where to correct a rule. Exchange rates are never stored here: they are fetched live on every Process."));
     const txt = (label, get, set, rows) => h("label", { class: "field", style: "margin-bottom:10px" }, label, h("textarea", { rows: rows || 5, onchange: (e) => { set(e.target.value); saveSettings(); toast("Saved."); } }, get()));
-    const acc = h("details", { class: "set", open: true }, h("summary", {}, "Accounts (re-confirm against the current chart of accounts before each run)"), h("div", { class: "scroll" }, h("table", {}, h("tbody", {}, Object.keys(settings.accounts).map((k) => h("tr", {}, h("td", { class: "mono" }, k), h("td", {}, h("input", { type: "text", value: settings.accounts[k], placeholder: "not set", style: "width:100%;min-width:380px", onchange: (e) => { settings.accounts[k] = e.target.value.trim(); saveSettings(); } }))))))));
-    const nm = h("details", { class: "set" }, h("summary", {}, "Vendor names and classes"), h("div", { class: "row" }, ["gyg", "cfl", "shoreline", "viator"].map((k) => field(`Name: ${k}`, h("input", { type: "text", value: settings.names[k], style: "width:260px", onchange: (e) => { settings.names[k] = e.target.value; saveSettings(); } })))), h("div", { class: "row", style: "margin:10px 0" }, ["gygClearing", "boats", "admin"].map((k) => field(`Class: ${k}`, h("input", { type: "text", value: settings.classes[k], style: "width:290px", onchange: (e) => { settings.classes[k] = e.target.value; saveSettings(); } })))), txt("Allowed classes (one per line; anything else blocks the journal)", () => settings.classes.allowed.join("\n"), (v) => (settings.classes.allowed = list(v)), 9));
+    const acc = h("details", { class: "set", open: true }, h("summary", {}, "Accounts (re-confirm against the current chart of accounts before each run)"), h("div", { class: "scroll" }, h("table", {}, h("tbody", {}, Object.keys(settings.accounts).filter((k) => !/viator/i.test(k)).map((k) => h("tr", {}, h("td", { class: "mono" }, k), h("td", {}, h("input", { type: "text", value: settings.accounts[k], placeholder: "not set", style: "width:100%;min-width:380px", onchange: (e) => { settings.accounts[k] = e.target.value.trim(); saveSettings(); } }))))))));
+    const nm = h("details", { class: "set" }, h("summary", {}, "Vendor names and classes"), h("div", { class: "row" }, ["gyg", "cfl", "shoreline"].map((k) => field(`Name: ${k}`, h("input", { type: "text", value: settings.names[k], style: "width:260px", onchange: (e) => { settings.names[k] = e.target.value; saveSettings(); } })))), h("div", { class: "row", style: "margin:10px 0" }, ["gygClearing", "boats", "admin"].map((k) => field(`Class: ${k}`, h("input", { type: "text", value: settings.classes[k], style: "width:290px", onchange: (e) => { settings.classes[k] = e.target.value; saveSettings(); } })))), txt("Allowed classes (one per line; anything else blocks the journal)", () => settings.classes.allowed.join("\n"), (v) => (settings.classes.allowed = list(v)), 9));
     const maps = h("details", { class: "set" }, h("summary", {}, "Class rules and remembered classes"),
       txt("Detection rules: regex = class (first match wins; used for GYG products, Groupon payables and Airbnb listings)", () => settings.classRules.map(([a, b]) => `${a} = ${b}`).join("\n"), (v) => (settings.classRules = Object.entries(unlines(v))), 9),
       txt("GYG account number = class (read from the PDF)", () => lines(settings.gygAccountToClass), (v) => (settings.gygAccountToClass = unlines(v)), 8), txt("Remembered GYG invoice = class (added when you pick one)", () => lines(settings.gygInvoiceToClass), (v) => (settings.gygInvoiceToClass = unlines(v)), 3),
@@ -461,10 +462,10 @@
   }
 
   /* ----- shell ----- */
-  function renderTabs() { const t = document.getElementById("tabs"); t.textContent = ""; [["close", "Close"], ["check", "Checklist"], ["settings", "Settings"]].forEach(([id, l]) => t.append(h("button", { "aria-current": state.page === id ? "page" : null, onclick: () => go(id) }, l))); }
-  function go(page) { state.page = page; renderTabs(); if (page === "close") renderClose(); else { const d = document.querySelector(".dock"); if (d) d.remove(); page === "check" ? renderChecklist() : renderSettings(); } window.scrollTo(0, 0); try { history.replaceState(null, "", "#" + page); } catch (e) { /* file:// */ } }
+  function renderTabs() { const t = document.getElementById("tabs"); t.textContent = ""; [["close", "Close"], ["sop", "SOP"], ["check", "Checklist"], ["settings", "Settings"]].forEach(([id, l]) => t.append(h("button", { "aria-current": state.page === id ? "page" : null, onclick: () => go(id) }, l))); }
+  function go(page) { state.page = page; renderTabs(); if (page === "close") renderClose(); else { const d = document.querySelector(".dock"); if (d) d.remove(); page === "check" ? renderChecklist() : page === "sop" ? renderSop() : renderSettings(); } window.scrollTo(0, 0); try { history.replaceState(null, "", "#" + page); } catch (e) { /* file:// */ } }
   const mi = document.getElementById("month"); mi.value = state.month;
   mi.addEventListener("change", () => { if (!mi.value) return; state.month = mi.value; LS.set("med-month", state.month); state.results = {}; state.processed = false; state.fx = null; state.overrides = {}; state.cflEst = null; state.cflScan = null; go(state.page); });
   window.MED = { state, settings: () => settings, ME, processAll };
-  const start = location.hash.slice(1); renderTabs(); go(["close", "check", "settings"].includes(start) ? start : "close");
+  const start = location.hash.slice(1); renderTabs(); go(["close", "sop", "check", "settings"].includes(start) ? start : "close");
 })();

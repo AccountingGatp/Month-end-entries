@@ -75,8 +75,8 @@
     },
     depAssetClass: { "ET-1": "Empire Tours:Administrative", "ET-2": "Empire Tours:SIA", "ET-3": "Empire Tours:SIA" },
     cfl: {
-      products: ["90-Minute Original Chicago River Boat Architecture Cruise", "75-Minute River Boat Architecture Tour"],
-      notCfl: ["Cocktail Cruise", "Guided Historic Small Boat", "45-Minute Skyline Lake Tour", "Navy Pier Fireworks"],
+      products: ["90-Minute Original Chicago River Boat Architecture Cruise"],
+      notCfl: ["75-Minute River Boat Architecture Tour", "Cocktail Cruise", "Guided Historic Small Boat", "45-Minute Skyline Lake Tour", "Navy Pier Fireworks"],
       feePct: 9, cppPct: 32
     },
     shoreline: { sharePct: 70, excludePatterns: ["90"], exclude75: false },

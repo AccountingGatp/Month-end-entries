@@ -15,3 +15,8 @@ Drop all of the month's files in one place, press **Process month-end**, downloa
 - Open SOP items (Viator accounts, SIA accounts, 80000 amortization source, CFL base discrepancy) are listed on the Checklist tab.
 - Deploy: Vercel (connected to GitHub) (vercel.json, no build). Local: `python3 -m http.server`.
 - Tests: `node tests/regression.test.js <gyg_dir> <groupon_dir> <airbnb.csv> <dep.xlsx> [pdf_text_dir]`.
+
+## Changes (latest)
+- Viator removed from the month-end flow.
+- The 75-minute tour is no longer part of CFL; it stays in Shoreline.
+- Close page is three steps (add reports, type numbers, process). Each entry shows its SOP rule, and there is an SOP tab with the full SOP as applied.

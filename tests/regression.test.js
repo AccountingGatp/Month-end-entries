@@ -73,7 +73,7 @@ if (pdfDir) { const t = fs.readFileSync(path.join(pdfDir, "london.txt"), "utf8")
     R("Direct", "Confirmed", "Brand New Boat Tour", "2026-09-25", "Purchase", "Order", 300), R("Direct", "Confirmed", P1, "2026-10-02", "Purchase", "Order", 555),
     R("Direct", "Confirmed", P1, "2026-09-10", "Purchase", "Order", 400)];
   const sc = ME.cfl.scan([{ name: "Reservations", rows }], "2026-09-16", "2026-09-30", S.cfl);
-  ok(sc.base === 150050, "CFL scan: only confirmed, direct, non-waitlist CFL products in the window = 1,500.50 (got " + U.fmt(sc.base) + ")");
+  ok(sc.base === 100050, "CFL scan: only confirmed, direct, non-waitlist CFL products, 75-minute tour excluded (Shoreline only) = 1,000.50 (got " + U.fmt(sc.base) + ")");
   ok(Object.keys(sc.unknown).join() === "Brand New Boat Tour" && sc.maxArrival === "2026-10-02", "CFL scan: unknown product flagged for a decision; arrival range reported");
   const f1 = ME.cfl.scan([{ name: "Reservations", rows }], "2026-09-01", "2026-09-15", S.cfl); ok(f1.base === 40000, "CFL scan: 1st-15th window = 400.00");
   ok(!!ME.cfl.scan([{ name: "x", rows: [["a"], ["b"]] }], "2026-09-16", "2026-09-30", S.cfl).error, "CFL scan: missing 'Base Amount' header reported, not guessed");
