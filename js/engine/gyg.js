@@ -59,6 +59,27 @@
       (byClass[cls] = byClass[cls] || { usd: 0, invs: [] }); byClass[cls].usd += e.usd; byClass[cls].invs.push(`GIS-${inv}`);
       table.push(e);
     }
+    // invoices that arrived only as a PDF (no Excel): read gross, commission, currency, class and month from the PDF itself
+    const MONTHS = ["january","february","march","april","may","june","july","august","september","october","november","december"];
+    for (const [inv, pdf] of Object.entries(pdfs)) {
+      if (table.some((t) => t.inv === inv) || !pdf || pdf.commission === null || pdf.commission === undefined) continue;
+      const pm = pdf.period && pdf.period.match(/^([A-Za-z]+)\s+\d+\s*-\s*\d+,\s*(\d{4})/);
+      const svc = pm && MONTHS.indexOf(pm[1].toLowerCase()) >= 0 ? `${pm[2]}-${String(MONTHS.indexOf(pm[1].toLowerCase()) + 1).padStart(2, "0")}` : month;
+      const e = { inv, file: `GIS-${inv}.pdf`, svc, rows: 0, currency: pdf.currency || "USD", gross: pdf.bookings || 0, comm: pdf.commission, net: 0, tax: 0, adj: 0, pdf, tied: true, fromPdf: true };
+      if (!pdf.period) j.warnings.push(`GIS-${inv}: the PDF has no service period, so it is assumed to be ${label}.`);
+      if (svc !== month) { e.skip = `${U.monthLabel(svc)} invoice`; table.push(e); continue; }
+      let cls = overrides[inv], how = "chosen on screen";
+      if (!cls && pdf.account && settings.gygAccountToClass[pdf.account]) { cls = settings.gygAccountToClass[pdf.account]; how = `PDF account ${pdf.account}`; }
+      if (!cls && settings.gygInvoiceToClass[inv]) { cls = settings.gygInvoiceToClass[inv]; how = "saved invoice map"; }
+      e.cls = cls || ""; e.classSource = cls ? how : "";
+      if (!cls) { j.errors.push(`GIS-${inv}: class not found for PDF account ${pdf.account || "(none)"}. Pick it below.`); j.fixes.push({ type: "gyg", key: inv, label: `GIS-${inv}` }); table.push(e); continue; }
+      if (cls === "NYC") nyc.push(inv);
+      const r = fx(e.currency); if (!r) { table.push(e); continue; }
+      e.rate = r; e.usd = e.currency === "USD" ? e.comm : U.mulRound(e.comm, r); e.included = true;
+      j.notes.push(`GIS-${inv}: read from the PDF alone (no Excel file). Commission ${e.currency} ${U.fmt(e.comm)}${e.currency !== "USD" ? ` converted at ${r}` : ""}. Add the Excel file to tie the booking lines.`);
+      (byClass[cls] = byClass[cls] || { usd: 0, invs: [] }); byClass[cls].usd += e.usd; byClass[cls].invs.push(`GIS-${inv}`);
+      table.push(e);
+    }
     if (noPdf.length) j.warnings.push(`No PDF added for ${noPdf.length} invoice(s) (${noPdf.map((x) => "GIS-" + x).join(", ")}). They are not tied to the invoice to the penny and their class is not confirmed by account number.`);
     if (inferred.length) j.warnings.push(`Class detected from product names (not yet confirmed by a PDF account number) for: ${inferred.join("; ")}. Confirm with the PDF account number.`);
     if (nyc.length) j.warnings.push(`NYC account 248305 (${nyc.map((x) => "GIS-" + x).join(", ")}): flag for entity review.`);

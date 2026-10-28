@@ -127,7 +127,7 @@
   const dollars = (s) => (s === "" || s === null ? 0 : cents(s));
   const BUILD = {
     gyg() {
-      const inv = filesOf("gyg"); if (!inv.length) return [];
+      const inv = filesOf("gyg"); if (!inv.length && !filesOf("gygpdf").length) return [];
       const pdfs = {}; filesOf("gygpdf").forEach((f) => { if (f.invoice) pdfs[f.invoice] = f.pdf; });
       return [ME.buildGyg(state.month, inv.map((f) => ({ name: f.name, hash: f.hash, rows: f.rows })), pdfs, settings, state.overrides)];
     },
@@ -192,7 +192,7 @@
     if (state.busy) return; state.busy = true; state.progress = [["Reading files", "now"]]; renderClose();
     const step = (label) => { state.progress.forEach((p) => (p[1] = "ok")); state.progress.push([label, "now"]); renderProgress(); };
     await new Promise((r) => setTimeout(r, 60));
-    if (filesOf("gyg").length) { step("Fetching live exchange rates (ECB via Frankfurter)"); state.fx = await loadFx(state.month); } else state.fx = null;
+    if (filesOf("gyg").length || filesOf("gygpdf").length) { step("Fetching live exchange rates (ECB via Frankfurter)"); state.fx = await loadFx(state.month); } else state.fx = null;
     step("Building the journals and running the SOP checks"); await new Promise((r) => setTimeout(r, 60));
     buildAll(); state.processed = true; state.stale = false; state.busy = false; state.progress = []; renderClose();
     setTimeout(() => { const r = document.getElementById("results"); if (r) r.scrollIntoView({ behavior: "smooth", block: "start" }); }, 50);
@@ -263,7 +263,7 @@
         h("thead", {}, h("tr", {}, ["Invoice", "Service month", "Cur", "Rows", "Commission", "USD", "Class", "How", "PDF"].map((c, i) => h("th", { class: i >= 3 && i <= 5 ? "n" : "" }, c)))),
         h("tbody", {}, t.map((e) => h("tr", { style: e.skip ? "opacity:.55" : "" }, h("td", { class: "mono" }, "GIS-" + e.inv), h("td", {}, e.skip ? `${U.monthLabel(e.svc)} (skipped)` : U.monthLabel(e.svc)), h("td", {}, e.currency), h("td", { class: "n" }, e.rows), h("td", { class: "n" }, fmt(e.comm)), h("td", { class: "n" }, e.usd !== undefined ? fmt(e.usd) : ""),
           h("td", {}, e.skip ? "" : h("select", { onchange: (ev) => { state.overrides[e.inv] = ev.target.value; rebuild(); } }, h("option", { value: "" }, "(choose)"), settings.classes.allowed.map((c) => h("option", { value: c, selected: c === e.cls }, c)))),
-          h("td", {}, e.classSource || ""), h("td", {}, e.skip ? "" : e.tied ? "✓ tied" : e.pdf ? "mismatch" : "none")))))));
+          h("td", {}, e.classSource || ""), h("td", {}, e.skip ? "" : e.fromPdf ? "PDF only" : e.tied ? "✓ tied" : e.pdf ? "mismatch" : "none")))))));
     },
     jonathan() {
       const j = (state.results.jonathan || [])[0]; if (!j || !j.meta || !j.meta.segs) return null;
@@ -285,7 +285,7 @@
 
   /* ----- tiles: one per SOP entry, showing what is received and what is still needed ----- */
   const ENTRIES = [
-    { id: "gyg", sop: "3.1", title: "GetYourGuide", rule: "Book one commission journal per service month. Debit the GYG commission income account by class, credit the GYG clearing account. EUR and GBP invoices use the month-average rate. Invoices are grouped by activity date, so a month is never mixed with another.", hint: "GIS-….xlsx invoices, plus the PDFs for tie-out", types: ["gyg", "gygpdf"] },
+    { id: "gyg", sop: "3.1", title: "GetYourGuide", rule: "Book one commission journal per service month. Debit the GYG commission income account by class, credit the GYG clearing account. EUR and GBP invoices use the month-average rate. Invoices are grouped by activity date, so a month is never mixed with another.", hint: "GIS-… invoices as Excel, CSV or PDF (PDFs add the penny tie-out)", types: ["gyg", "gygpdf"] },
     { id: "groupon", sop: "3.1", title: "Groupon", rule: "Commission = what the customer paid less what Groupon paid out, per class (payable name). Month comes from Date Processed. Voided rows are included.", hint: "PAYMENT_DETAILS exports", types: ["groupon", "empty"] },
     { id: "airbnb", sop: "3.1", title: "Airbnb", rule: "Experience bookings only. Commission = Airbnb service fee, by listing class. Payout plus fee must equal gross. Compare the payouts to Chase 6673.", hint: "Transaction History CSV", types: ["airbnb"] },
     { id: "jonathan", sop: "3.2", title: "Jonathan loan interest", rule: "15% a year, simple interest, actual/365, on the daily balance. Take the balance on the 1st from QBO 23021 and list any advances or repayments with their dates.", hint: "Balance on 23021 from QBO", types: ["jonathanwb"], inputs: true },
@@ -298,7 +298,7 @@
   function readiness(id) {
     const n = (...t) => filesOf(...t).length, R = (t) => ({ s: "ready", t }), P = (t) => ({ s: "partial", t }), W = (t) => ({ s: "waiting", t });
     switch (id) {
-      case "gyg": { const a = n("gyg"), p = n("gygpdf"); return !a ? W("Waiting for the invoices") : R(`${a} invoice file${a > 1 ? "s" : ""}${p ? ` · ${p} PDF${p > 1 ? "s" : ""}` : " · no PDFs yet"}`); }
+      case "gyg": { const a = n("gyg"), p = n("gygpdf"); return !a && !p ? W("Waiting for the invoices") : R(`${a ? `${a} Excel/CSV invoice${a > 1 ? "s" : ""}` : "PDF invoices only"}${p && a ? ` · ${p} PDF${p > 1 ? "s" : ""} for tie-out` : p ? ` (${p})` : " · PDFs optional (add for penny tie-out)"}`); }
       case "groupon": { const a = n("groupon"); return a ? R(`${a} export${a > 1 ? "s" : ""}${n("empty") ? ` · ${n("empty")} empty ignored` : ""}`) : W("Waiting for the exports"); }
       case "airbnb": return n("airbnb") ? R("CSV received") : W("Waiting for the CSV");
       case "depreciation": return n("depreciation") ? R("Tracker received") : W("Waiting for the tracker");
@@ -393,7 +393,7 @@
     if (!js.length) { box.append(h("section", { class: "card" }, h("p", { class: "hint" }, "Nothing could be built yet. Add the inputs shown as waiting above."))); return box; }
     const nb = js.filter((j) => j.status === "blocked").length, nr = js.filter((j) => j.status === "review").length;
     box.append(h("div", { class: "kv" }, h("div", {}, h("small", {}, "Journals"), h("span", {}, js.length)), h("div", {}, h("small", {}, "Ready"), h("span", { style: "color:var(--ok)" }, js.length - nb - nr)), h("div", {}, h("small", {}, "Need review"), h("span", { style: "color:var(--warn)" }, nr)), h("div", {}, h("small", {}, "Blocked"), h("span", { style: "color:var(--bad)" }, nb))));
-    if (filesOf("gyg").length) box.append(fxCard());
+    if (filesOf("gyg").length || filesOf("gygpdf").length) box.append(fxCard());
     const skipped = ORDER.filter((id) => !(state.results[id] || []).length);
     for (const id of ORDER) for (const j of state.results[id] || []) {
       const extra = EXTRA[ENTRY_OF[id]] ? EXTRA[ENTRY_OF[id]]() : null;

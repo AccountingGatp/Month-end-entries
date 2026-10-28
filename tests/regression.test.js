@@ -63,6 +63,8 @@ ok(ME.viatorBalanceCheck(-5, 1000).level === "stop" && ME.viatorBalanceCheck(0, 
 const csv = ME.toQboCsv([jo, sh], true).split("\r\n"); ok(csv[1].split(",")[0] === "1" && csv[1].includes("2026-08-31") && csv[3].startsWith("2,") , "QBO CSV numbering and date on first line");
 // PDF text parse (London invoice)
 if (pdfDir) { const t = fs.readFileSync(path.join(pdfDir, "london.txt"), "utf8"); const p = ME.io.parsePdfText(t); ok(p.account === "320550" && p.commission === 1172224 && p.bookings === 2980487, "PDF parse: account 320550, bookings 29,804.87, commission 11,722.24"); }
+if (pdfDir) { const p2 = ME.io.parsePdfText(fs.readFileSync(path.join(pdfDir, "london.txt"), "utf8")); const gj = ME.buildGyg("2026-09", [], { [p2.invoice]: p2 }, S, {});
+  ok(gj.errors.length === 0 && gj.lines.length === 2 && gj.lines[0].cls === "Empire Tours:London" && gj.lines[0].debit === 1572656 && gj.debits === gj.credits, "GYG invoice that is only a PDF: London GBP 11,722.24 x 1.3416 = 15,726.56, class from account number (got " + (gj.errors[0] || U.fmt(gj.debits)) + ")"); }
 // CFL scan on a synthetic Xola export (column order shuffled, junk rows above the header, serial dates)
 {
   const ser = (d) => Math.round(Date.UTC(...d.split("-").map((x, i) => (i === 1 ? x - 1 : +x))) / 86400000 + 25569);
