@@ -75,13 +75,17 @@
     },
     depAssetClass: { "ET-1": "Empire Tours:Administrative", "ET-2": "Empire Tours:SIA", "ET-3": "Empire Tours:SIA" },
     cfl: {
-      products: ["90-Minute Original Chicago River Boat Architecture Cruise"],
-      notCfl: ["75-Minute River Boat Architecture Tour", "Cocktail Cruise", "Guided Historic Small Boat", "45-Minute Skyline Lake Tour", "Navy Pier Fireworks"],
-      feePct: 9, cppPct: 32
+      // SOP (28 Oct 2026): CFL is the 90-minute tours only
+      products: ["90-Minute Original Chicago River Boat Architecture Cruise", "90-Minute Cocktail Cruise and Architecture Tour", "90-Minute Guided Historic Small Boat River Architecture Tour", "The Chicago River Boat Architecture Tour"],
+      notCfl: ["75-Minute River Boat Architecture Tour", "45-Minute Skyline Lake Tour", "Navy Pier Fireworks"],
+      feePct: 9, cppPct: 32,
+      // Step 2 size check: warn when reservations or passengers are this % below last month (Aug was 10.5% short, Sep 46.8%)
+      sizeWarnPct: 20, benchmark: { rows: 2500, pax: 6500 }
     },
     shoreline: { sharePct: 70, excludePatterns: ["90"], exclude75: false },
     jonathan: { ratePct: 15, basis: 365 },
     variancePct: 30,
+    cflSize: {},   // reservations and passengers seen in each month's export, for the Step 2 size check
     history: { gyg: { "2026-08": 4384605 } }   // baseline totals in cents for the 30% check
   };
 })(typeof window !== "undefined" ? window : globalThis);

@@ -37,12 +37,15 @@ ok(feb.interest === 357534, "Jonathan Feb interest with 3 advances = 3,575.34 (w
 const apr = ME.calcJonathan("2026-04", 65000000, [{ date: "2026-04-08", delta: -5000000 }, { date: "2026-04-21", delta: -5000000 }, { date: "2026-04-28", delta: -5000000 }], 15, 365);
 ok(apr.interest === 727397, "Jonathan Apr interest with repayments = 7,273.97 (workbook)");
 // CFL SOP worked example: base 341,250.00 -> gross 262,762.50, ad 39,988.53, net 222,773.97
-const k = ME.cfl.calc(34125000, 9, 32); ok(k.gross === 26276250, "CFL gross = base x 77% = 262,762.50 (SOP example)");
-const cj = ME.buildCflEstimate("2026-09", { base: 34125000, ad: 3998853 }, S);
-ok(cj.lines[2].credit === 22277397 && cj.debits === cj.credits, "CFL net accrual = 222,773.97 and journal balances");
-ok(ME.cfl.validate(100000, 100080).level === "ok" && ME.cfl.validate(100000, 103000).level === "note" && ME.cfl.validate(100000, 120000).level === "stop", "CFL validation bands (0.5% / 5%)");
+const k = ME.cfl.calc(36561200, 9, 32); ok(k.gross === 28152124 && k.fee === 3290508 && k.cpp === 11699584, "CFL Sep 16-30 SOP example: base 365,612.00 -> fee 32,905.08, CPP 116,995.84, gross 281,521.24");
+const cj = ME.buildCflEstimate("2026-09", { base: 36561200, ad: 3998853 }, S);
+ok(cj.lines[2].credit === 24153271 && cj.debits === cj.credits && cj.lines[2].description === "Sep 2026 CFL Accrual - due to CFL", "CFL net accrual = 241,532.71, journal balances, SOP descriptions");
+ok(ME.cfl.validate(100000, 100080).level === "ok" && ME.cfl.validate(100000, 104900).level === "ok" && ME.cfl.validate(100000, 120000).level === "stop" && ME.cfl.validate(1, 0).level === "missing", "CFL Step 5: within 5% post, over 5% stop");
+const sc0 = { rows: 1000, pax: 2500, paxFound: true };
+ok(ME.cfl.sizeCheck(sc0, null, S.cfl).level === "light" && ME.cfl.sizeCheck({ rows: 2400, pax: 6300, paxFound: true }, null, S.cfl).level === "ok" && ME.cfl.sizeCheck({ rows: 2000, pax: 5000, paxFound: true }, { rows: 2200, pax: 5800 }, S.cfl).level === "ok", "CFL Step 2 size check vs SOP figures / last month");
+const cq = ME.buildCflEstimate("2026-09", { base: 36561200, ad: 3998853 }, S); ok(ME.toQboCsv([cq], true).includes('"CHICAGO FROM THE LAKE, LTD_CFL"') && cq.lines.length === 3, "CFL CSV: vendor name quoted, three lines");
 // the posted CFL journal implies base ~ 397,906
-const kp = ME.cfl.calc(Math.round(30638743 / 0.77), 9, 32); console.log("     posted CFL gross 306,387.43 implies base", U.fmt(Math.round(30638743 / 0.77)), "(SOP example base is 341,250.00)");
+const kp = ME.cfl.calc(Math.round(30638743 / 0.77), 9, 32); console.log("     posted CFL gross 306,387.43 implies base", U.fmt(Math.round(30638743 / 0.77)), "(new SOP: Sep 16-30 gross 281,521.24, base 365,612.00)");
 // CFL actual: reverse estimate and book actual balances
 const ca = ME.buildCflActual("2026-08", { total: 27324400, ad: 3998853, priorGross: 24717500 + 3998853, priorAd: 3998853 }, S);
 ok(ca.debits === ca.credits, "CFL actual journal balances (reverse estimate + book actual)");
@@ -69,11 +72,11 @@ if (pdfDir) { const t = fs.readFileSync(path.join(pdfDir, "london.txt"), "utf8")
   const rows = [["Export", null], [], hdr,
     R("Direct", "Confirmed", P1, "2026-09-20", "Purchase", "Order", 1000.5), R("Viator", "Confirmed", P2, "2026-09-30", "Purchase", "Order", 500),
     R("Get Your Guide", "Confirmed", P1, "2026-09-21", "Purchase", "Order", 999), R("Direct", "Cancelled", P1, "2026-09-22", "Purchase", "Order", 888),
-    R("Direct", "Confirmed", P1, "2026-09-23", "Waitlist", "Order", 777), R("Direct", "Confirmed", "Cocktail Cruise", "2026-09-24", "Purchase", "Order", 666),
+    R("Direct", "Confirmed", P1, "2026-09-23", "Waitlist", "Order", 777), R("Direct", "Confirmed", "45-Minute Skyline Lake Tour", "2026-09-24", "Purchase", "Order", 666), R("Direct", "Confirmed", "90-Minute Cocktail Cruise and Architecture Tour", "2026-09-26", "Purchase", "Order", 200), R("Direct", "Confirmed", "Chicago River boat Architecture Tour", "2026-09-27", "Purchase", "Order", 100),
     R("Direct", "Confirmed", "Brand New Boat Tour", "2026-09-25", "Purchase", "Order", 300), R("Direct", "Confirmed", P1, "2026-10-02", "Purchase", "Order", 555),
     R("Direct", "Confirmed", P1, "2026-09-10", "Purchase", "Order", 400)];
   const sc = ME.cfl.scan([{ name: "Reservations", rows }], "2026-09-16", "2026-09-30", S.cfl);
-  ok(sc.base === 100050, "CFL scan: only confirmed, direct, non-waitlist CFL products, 75-minute tour excluded (Shoreline only) = 1,000.50 (got " + U.fmt(sc.base) + ")");
+  ok(sc.base === 130050, "CFL scan: confirmed, direct, non-waitlist; all 90-minute tours incl. cocktail and old name/spelling; 75 and 45-minute excluded = 1,300.50 (got " + U.fmt(sc.base) + ")");
   ok(Object.keys(sc.unknown).join() === "Brand New Boat Tour" && sc.maxArrival === "2026-10-02", "CFL scan: unknown product flagged for a decision; arrival range reported");
   const f1 = ME.cfl.scan([{ name: "Reservations", rows }], "2026-09-01", "2026-09-15", S.cfl); ok(f1.base === 40000, "CFL scan: 1st-15th window = 400.00");
   ok(!!ME.cfl.scan([{ name: "x", rows: [["a"], ["b"]] }], "2026-09-16", "2026-09-30", S.cfl).error, "CFL scan: missing 'Base Amount' header reported, not guessed");

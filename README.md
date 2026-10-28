@@ -20,3 +20,4 @@ Drop all of the month's files in one place, press **Process month-end**, downloa
 - Viator removed from the month-end flow.
 - The 75-minute tour is no longer part of CFL; it stays in Shoreline.
 - Close page is three steps (add reports, type numbers, process). Each entry shows its SOP rule, and there is an SOP tab with the full SOP as applied.
+- CFL follows the 28 Oct 2026 SOP: 90-minute tours only (four products), Step 2 export checks (dates, size vs last month or the SOP's September figures, Base Amount column), Step 5 check (within 5% post, over 5% stop), SOP journal wording, Step 7 reverse-and-rebook.

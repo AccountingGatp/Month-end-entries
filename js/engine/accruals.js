@@ -16,10 +16,11 @@
       if (hi < 0) return { error: 'Header row with "Base Amount" not found. Xola may have changed the export again.' };
       const ix = U.indexHeaders(sh.rows[hi]);
       const c = { arr: U.findCol(ix, /^arrival date/), st: U.findCol(ix, "status"), src: U.findCol(ix, "source"), pt: U.findCol(ix, "purchase type"),
-                  type: U.findCol(ix, "type"), prod: U.findCol(ix, /^(product|product name|experience|experience name|item|item name)$/), base: U.findCol(ix, "base amount") };
+                  type: U.findCol(ix, "type"), pax: U.findCol(ix, /^(pax|passengers?|guests?|quantity|qty|tickets?|number of (guests|passengers|people))$/), prod: U.findCol(ix, /^(product|product name|experience|experience name|item|item name)$/), base: U.findCol(ix, "base amount") };
       const need = ["arr", "st", "src", "prod", "base"].filter((k) => c[k] < 0);
       if (need.length) return { error: `Columns not found in the Xola export: ${need.join(", ")}.` };
-      const out = { sheet: sh.name, base: 0, rows: 0, byProduct: {}, unknown: {}, excluded: { status: 0, source: 0, waitlist: 0, type: 0, notCfl: 0, outOfRange: 0 }, minArrival: null, maxArrival: null };
+      const col = (i) => { let n = i + 1, t = ""; while (n > 0) { const m = (n - 1) % 26; t = String.fromCharCode(65 + m) + t; n = Math.floor((n - 1) / 26); } return t; };
+      const out = { sheet: sh.name, baseCol: col(c.base), paxFound: c.pax >= 0, pax: 0, base: 0, rows: 0, byProduct: {}, unknown: {}, excluded: { status: 0, source: 0, waitlist: 0, type: 0, notCfl: 0, outOfRange: 0 }, minArrival: null, maxArrival: null };
       for (const r of sh.rows.slice(hi + 1)) {
         const a = U.toDate(r[c.arr]); if (!a || r[c.prod] === null) continue;
         const ad = U.ymd(a);
@@ -32,15 +33,25 @@
         const p = String(r[c.prod]).trim();
         if (cfg.notCfl.some((n) => has(p, n))) { out.excluded.notCfl++; continue; }
         if (!cfg.products.some((n) => has(p, n) || has(n, p))) { out.unknown[p] = (out.unknown[p] || 0) + U.cents(r[c.base]); continue; }
-        const b = U.cents(r[c.base]); out.base += b; out.rows++; out.byProduct[p] = (out.byProduct[p] || 0) + b;
+        const b = U.cents(r[c.base]); out.base += b; out.rows++; if (c.pax >= 0) out.pax += Number(r[c.pax]) || 0; out.byProduct[p] = (out.byProduct[p] || 0) + b;
       }
       return out;
     },
-    /* thresholds from the SOP: <0.5% post; 0.5-5% note and post; >5% stop */
+    /* SOP Step 5: within 5% of Connor's base = post; more than 5% out = stop */
     validate(ourBase, connorBase) {
       if (!connorBase) return { level: "missing", pct: null };
       const pct = Math.abs(ourBase - connorBase) / connorBase * 100;
-      return { level: pct < 0.5 ? "ok" : pct <= 5 ? "note" : "stop", pct };
+      return { level: pct <= 5 ? "ok" : "stop", pct };
+    },
+    /* SOP Step 2: is the export complete? compare with last month's saved counts (or the SOP's September figures) */
+    sizeCheck(scan, prev, cfg) {
+      const out = { messages: [], level: "ok" };
+      const ref = prev && prev.rows ? { rows: prev.rows, pax: prev.pax, from: "last month" } : { ...cfg.benchmark, from: "the SOP's September 16-30 figures (about 2,500 reservations, 6,500 passengers)" };
+      const lim = 1 - (cfg.sizeWarnPct || 20) / 100;
+      if (scan.rows < ref.rows * lim) { out.level = "light"; out.messages.push(`Only ${scan.rows} qualifying reservations against about ${ref.rows} in ${ref.from}. The export looks light. Pull it again before posting.`); }
+      if (scan.paxFound && ref.pax && scan.pax < ref.pax * lim) { out.level = "light"; out.messages.push(`Only ${Math.round(scan.pax)} passengers against about ${ref.pax} in ${ref.from}. The export looks light.`); }
+      if (!scan.paxFound) out.messages.push("No passenger column found in the export, so only reservations were compared.");
+      return out;
     }
   };
 
@@ -50,22 +61,23 @@
     const j = new ME.Journal("cfl", "CFL accrual (16th to month end)", `CFL-${y}${mo}`, U.lastDate(month));
     const k = ME.cfl.calc(p.base, settings.cfl.feePct, settings.cfl.cppPct); j.meta = { ...k, ad: p.ad };
     if (!p.base) { j.errors.push("Base amount is zero. Check the Xola export, the date range and the CFL product list."); return j; }
-    const net = k.gross - (p.ad || 0), desc = `${label} CFL Accrual (16-${U.lastDay(month)})`, nm = settings.names.cfl, cls = settings.classes.boats;
-    j.line(A.cflCogs, { debit: k.gross, description: desc, name: nm, cls });
-    if (p.ad) j.line(A.cflMarketing, { credit: p.ad, description: desc, name: nm, cls });
-    j.line(A.accountsPayable, { credit: net, description: desc, name: nm, cls });
-    if (!p.ad) j.warnings.push("No ad-spend credit yet. Post without it and add it when Aanand's 'Marketing Accrual for CFL' email arrives. Do not guess a percentage.");
+    const net = k.gross - (p.ad || 0), desc = `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+mo - 1]} ${y} CFL Accrual`, nm = settings.names.cfl, cls = settings.classes.boats;
+    j.line(A.cflCogs, { debit: k.gross, description: desc, name: "", cls });
+    if (p.ad) j.line(A.cflMarketing, { credit: p.ad, description: desc + " - ad spend", name: "", cls });
+    j.line(A.accountsPayable, { credit: net, description: desc + " - due to CFL", name: nm, cls });
+    if (net <= 0) j.warnings.push("The ad spend is larger than the gross to CFL, so the net accrual is not positive. Check the base and the ad-spend figure.");
+    if (!p.ad) j.warnings.push("No ad-spend credit yet. Post the cost without it and add it when Aanand's 'Marketing Accrual for CFL' email arrives. Never guess the percentage.");
+    (p.size && p.size.messages || []).forEach((m) => (p.size.level === "light" && /light|Only/.test(m) ? j.warnings : j.notes).push("Step 2 export check: " + m));
     if (p.validation) {
       const v = p.validation;
-      if (v.level === "stop") j.errors.push(`Validation failed: the 1st-15th base differs from Connor's by ${v.pct.toFixed(2)}% (over 5%). Product scope or rates have changed. Stop and check.`);
-      else if (v.level === "note") j.warnings.push(`Validation: 1st-15th base is ${v.pct.toFixed(2)}% from Connor's (0.5%-5%). Note it and post.`);
-      else if (v.level === "ok") j.notes.push(`Validation: 1st-15th base is ${v.pct.toFixed(2)}% from Connor's (under 0.5%). Post.`);
-      else j.warnings.push("Connor's reconciliation was not entered, so the validation step was skipped. Say so on handover.");
+      if (v.level === "stop") j.errors.push(`Step 5 check failed: the 1st-15th base is ${v.pct.toFixed(2)}% from Connor's (over 5%). Your export is probably incomplete, or a tour has been renamed. Fix it first.`);
+      else if (v.level === "ok") j.notes.push(`Step 5 check: the 1st-15th base is ${v.pct.toFixed(2)}% from Connor's (within 5%). Post it.`);
+      else j.warnings.push("Connor's report for the 1st-15th was not entered, so the Step 5 check was skipped. Say so when you hand over.");
     }
-    j.notes.push(`Base ${U.fmt(k.base)}; CFL fee ${settings.cfl.feePct}% = ${U.fmt(k.fee)}; CPP commission ${settings.cfl.cppPct}% = ${U.fmt(k.cpp)}; gross to CFL = base x ${100 - settings.cfl.cppPct + settings.cfl.feePct}% = ${U.fmt(k.gross)}; less ad spend = net accrual ${U.fmt(net)}.`);
-    j.notes.push("The credit goes to A/P (not 21090), so the reversal when the actual arrives is essential. Leaving it in double-charges the period. The vendor name must match exactly or QBO creates a new vendor.");
-    j.notes.push("Excluded on purpose: GYG and other OTAs, charters (booked off-platform), cancellations. Not the boat-booking accrual (70% of unsailed bookings), which Empire does not book.");
-    j.notes.push("Past runs came out light: 16-31 Aug 2026 was accrued at 247,175 against an actual of 273,244 (10.5% short).");
+    j.notes.push(`Base ${U.fmt(k.base)}; CFL fee ${settings.cfl.feePct}% = ${U.fmt(k.fee)}; less CPP commission ${settings.cfl.cppPct}% = ${U.fmt(k.cpp)}; gross to CFL = base x ${100 - settings.cfl.cppPct + settings.cfl.feePct}% = ${U.fmt(k.gross)}; less ad spend ${U.fmt(p.ad || 0)} = net accrual ${U.fmt(net)}.`);
+    j.notes.push("The A/P line must carry the vendor name exactly (it has a comma, so it stays in double quotes in the CSV); a different spelling makes QBO create a new vendor. Only the first line carries the date. Do not post the ad spend again as a separate credit.");
+    j.notes.push("Step 7: when Connor's report arrives, reverse this entry in full and book his figure, or the estimate sits in A/P next to his real bill and the month is charged twice. Then confirm to Jonathan.");
+    j.notes.push("The estimate runs low by design: charters (booked off-platform, 12,371.54 in Sep 16-30) and GetYourGuide/OTA sales (12,494.65) are in Connor's bill but not in ours. Aug 16-31: estimate 247,175 vs actual 273,244 (10.5% short). Sep 16-30: estimate 181,467 vs actual 266,399 (46.8% short, mostly an incomplete export). The boat future-bookings accrual is not part of this entry.");
     return j;
   };
 

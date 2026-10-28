@@ -156,20 +156,26 @@
         const est = state.cflEst || {};
         return [ME.buildCflActual(m, { total: dollars(c.total), ad: dollars(c.adActual), priorGross: c.priorGross !== "" ? dollars(c.priorGross) : est.gross || 0, priorAd: c.priorAd !== "" ? dollars(c.priorAd) : est.ad || 0 }, settings)];
       }
-      let base = 0, validation = null, scan = null; state.cflScan = null;
-      if (xf) {
-        const second = ME.cfl.scan(xf.sheets, `${m}-16`, last, settings.cfl), first = ME.cfl.scan(xf.sheets, `${m}-01`, `${m}-15`, settings.cfl);
+      let base = 0, validation = null, scan = null, size = null; state.cflScan = null;
+      const xfs = filesOf("xola");
+      const best = (from, to) => { let b = null; for (const f of xfs) { const r = ME.cfl.scan(f.sheets, from, to, settings.cfl); r.file = f.name; if (!b || (!r.error && (b.error || r.rows > b.rows))) b = r; } return b; };
+      if (xfs.length) {
+        const second = best(`${m}-16`, last), first = best(`${m}-01`, `${m}-15`);
         state.cflScan = { second, first };
         if (second.error) { const j = new ME.Journal("cfl", "CFL accrual (16th to month end)", `CFL-${m.replace("-", "")}`, last); j.errors.push(second.error); return [j]; }
         base = second.base; scan = second;
         const cb = c.baseFirst !== "" ? dollars(c.baseFirst) : c.cppFirst !== "" ? Math.round(dollars(c.cppFirst) / (settings.cfl.cppPct / 100)) : 0;
-        validation = ME.cfl.validate(first.base, cb);
+        validation = first.rows > 0 || !cb ? ME.cfl.validate(first.base, cb) : { level: "nofile" };
+        size = ME.cfl.sizeCheck(second, (settings.cflSize || {})[U.prevMonth(m)], settings.cfl);
+        if (size.level === "ok" && second.rows) { settings.cflSize = settings.cflSize || {}; settings.cflSize[m] = { rows: second.rows, pax: Math.round(second.pax) }; saveSettings(); }
       } else if (c.manualBase !== "") base = dollars(c.manualBase); else return [];
-      const j = ME.buildCflEstimate(m, { base, ad: dollars(c.ad), validation }, settings);
+      const j = ME.buildCflEstimate(m, { base, ad: dollars(c.ad), validation: validation && validation.level === "nofile" ? null : validation, size }, settings);
+      if (validation && validation.level === "nofile") j.warnings.push("Step 5 check skipped: this export has no 1st-15th rows. Drop a second Xola export for the 1st to 15th to run it. Say so when you hand over.");
       if (scan) {
-        if (scan.maxArrival && scan.maxArrival > last) j.warnings.push(`The export runs to ${scan.maxArrival}, beyond month end. Rows outside ${m}-16 to ${last} are excluded; check the pull covered the right period.`);
-        const unk = Object.keys(scan.unknown); if (unk.length) j.warnings.push(`${unk.length} product(s) in the export are on neither the CFL nor the non-CFL list: ${unk.join("; ")}. Classify them below.`);
-      } else j.warnings.push("The base was typed in, not calculated from the Xola export, so the product filters and the 1st-15th validation did not run.");
+        if (scan.excluded.outOfRange) j.warnings.push(`Step 2 date check: the export has ${scan.excluded.outOfRange} row(s) dated outside ${m}-16 to ${last} (arrivals ${scan.minArrival} to ${scan.maxArrival}). The filter may not have applied. Only the 16th to month end was used, but confirm the pull is complete.`);
+        j.notes.push(`Step 2: Base Amount found in column ${scan.baseCol} of "${scan.sheet}"; ${scan.rows} qualifying reservations${scan.paxFound ? `, ${Math.round(scan.pax)} passengers` : ""}. Xola moved this column during 2026, so confirm it is the Base Amount.`);
+        const unk = Object.keys(scan.unknown); if (unk.length) j.warnings.push(`${unk.length} product(s) in the export are not on the CFL list (90-minute tours) or the not-CFL list: ${unk.join("; ")}. Classify them below.`);
+      } else j.warnings.push("The base was typed in, not calculated from the Xola export, so the Step 2 check, the product filters and the Step 5 check did not run.");
       state.cflEst = { gross: j.meta.gross, ad: j.meta.ad };
       return [j];
     }
@@ -285,7 +291,7 @@
     { id: "jonathan", sop: "3.2", title: "Jonathan loan interest", rule: "15% a year, simple interest, actual/365, on the daily balance. Take the balance on the 1st from QBO 23021 and list any advances or repayments with their dates.", hint: "Balance on 23021 from QBO", types: ["jonathanwb"], inputs: true },
     { id: "sia", sop: "3.3", title: "23014 SIA interest", rule: "Accrue one month of interest on the note: principal x rate / 12. The tool also makes the reversal dated the 1st of next month.", hint: "Amortization workbook, or balance and rate", types: ["sia"], inputs: true },
     { id: "depreciation", sop: "3.4", title: "Depreciation", rule: "Total depreciation for the month from the Garcia tracker, one debit and credit per asset, with the asset class.", hint: "Garcia depreciation tracker", types: ["depreciation"] },
-    { id: "cfl", sop: "3.5", title: "CFL accrual", rule: "Accrue 77% of the CFL tour base (arrival 16th to month end, not Waitlist, Type Order, Status Confirmed, not Get Your Guide) less the ad spend. The 75-minute tour is not CFL: it stays in Shoreline. The 1st to 15th is re-checked against Connor: under 0.5% post, 0.5 to 5% note, over 5% stop.", hint: "Xola Events Export, ad spend, Connor's figure", types: ["xola"], inputs: true },
+    { id: "cfl", sop: "3.5", title: "CFL accrual", rule: "Run only if Connor's 16th to month-end report has not arrived (if it has, enter it in the box below and the tool books the actual). Base = Xola Base Amount for arrivals 16th to month end, Type Order, not Waitlist, Status Confirmed, Source not Get Your Guide, 90-minute tours only (the 75-minute tour is Shoreline). Gross to CFL = base x 77% (base + 9% fee - 32% CPP); net accrual = gross less ad spend. Check the export is complete (Step 2) and that the 1st to 15th is within 5% of Connor (Step 5). Credit goes to 20000 A/P with the vendor name.", hint: "Xola Events Export (16th to month end), ad spend, Connor's 1st-15th figure", types: ["xola"], inputs: true },
     { id: "shoreline", sop: "3.5", title: "Shoreline accrual", rule: "Accrue 70% of the non-90-minute cruise revenue from the Ventrata report. The 75-minute tour is included here, and is not in CFL.", hint: "Ventrata report, or the revenue", types: ["shoreline"], inputs: true },
     { id: "amort", sop: "open", title: "Amortization (80000)", rule: "Optional. Only if you know the monthly amortization amount.", hint: "Open item: optional until its source is known", types: [], inputs: true }
   ];
@@ -322,9 +328,10 @@
     }
     if (id === "sia") { const s = state.sia; return [h("div", { class: "row" }, field("Loan principal at the start of the month (USD)", numIn(() => s.balance, (v) => (s.balance = v), "50000.00", 220)), field("Annual rate %", numIn(() => s.rate, (v) => (s.rate = v), "5.5", 90)), field("…or the interest itself (USD)", numIn(() => s.direct, (v) => (s.direct = v), "229.17", 160))), h("p", { class: "hint" }, "If the amortization workbook is dropped above, its Interest column for this month is used. Otherwise interest = principal × rate ÷ 12. Makes the accrual and its reversal on the 1st.")]; }
     if (id === "cfl") {
-      const c = state.cfl; return [h("div", { class: "row" }, field("CFL share of ad spend (USD, Aanand's email)", numIn(() => c.ad, (v) => (c.ad = v), "39988.53", 230)), field("Connor 1st–15th: CPP commission (USD)", numIn(() => c.cppFirst, (v) => (c.cppFirst = v), "", 220)), field("…or his base (USD)", numIn(() => c.baseFirst, (v) => (c.baseFirst = v), "", 150)), !filesOf("xola").length ? field("No export yet? Base 16th–end (USD)", numIn(() => c.manualBase, (v) => (c.manualBase = v), "341250.00", 210)) : null),
+      const c = state.cfl; return [h("div", { class: "row" }, field("CFL share of ad spend (USD, Aanand's email)", numIn(() => c.ad, (v) => (c.ad = v), "39988.53", 230)), field("Connor 1st–15th: CPP commission (USD)", numIn(() => c.cppFirst, (v) => (c.cppFirst = v), "", 220)), field("…or his base (USD)", numIn(() => c.baseFirst, (v) => (c.baseFirst = v), "", 150)), !filesOf("xola").length ? field("No export yet? Base 16th–end (USD)", numIn(() => c.manualBase, (v) => (c.manualBase = v), "365612.00", 210)) : null),
         h("details", { style: "margin-top:10px" }, h("summary", {}, "Connor's actual has arrived"), h("div", { class: "row", style: "margin-top:8px" }, field("His total payable to CFL (USD)", numIn(() => c.total, (v) => (c.total = v), "273244.00", 200)), field("Ad spend (USD)", numIn(() => c.adActual, (v) => (c.adActual = v), "", 150)), field("Estimate booked: gross (USD)", numIn(() => c.priorGross, (v) => (c.priorGross = v), "", 170)), field("Estimate's ad credit (USD)", numIn(() => c.priorAd, (v) => (c.priorAd = v), "", 160))), h("p", { class: "hint" }, "Reverses the estimate in full, then books the actual. Leave the estimate boxes empty to use the estimate from this session.")),
-        h("p", { class: "hint" }, "SOP filters: arrival 16th to month end, not Waitlist, Type Order, Status Confirmed, Source not Get Your Guide, CFL products only. Validation reruns the 1st–15th against Connor's base: under 0.5% post, 0.5–5% note and post, over 5% stop.")];
+        h("details", { style: "margin-top:8px" }, h("summary", {}, "How to pull the Xola export (SOP step 1)"), h("ol", { class: "hint" }, ["Log in to seller.xola.app (authenticator app needed).", "Reports, Analytics, Export Events.", "Arrival Date between the 16th and the last day of the month; Purchase Type is not Waitlist; Status leave all ticked; Type Order.", "Open the Reservations sheet (the one with Base Amount on every line). Ignore the Events sheet.", "For the Step 5 check, pull the same export again for the 1st to 15th and drop both files here."].map((t) => h("li", {}, t)))),
+        h("p", { class: "hint" }, "The tool applies the SOP filters itself, checks the dates and size of the export (Step 2), and re-runs the 1st to 15th against Connor: within 5% post, over 5% stop. Without the ad-spend figure it books the cost without the credit. Without Connor's 1st-15th report it skips Step 5 and says so.")];
     }
     if (id === "shoreline") {
       const s = state.shr, f = filesOf("shoreline")[0], hdrRow = f ? f.sheets[0].rows[s.hdr] || [] : [];
@@ -418,7 +425,7 @@
 
   /* ----- checklist page ----- */
   const CHECKS = ["QBO P&L for the close month vs the previous period (by Classes, then Total Only).", "Balance Sheet at month end vs prior month end.", "Drill into 21090 (Shoreline) and into 20000 A/P for CHICAGO FROM THE LAKE, LTD_CFL to confirm both accruals posted.", "Clearing sub-accounts: Xola (10031) should be near nil. Do not test any portal against one month's invoice.", "21085 VAT Payable is flat at 63,220.62 until it clears in September: expected, do not flag.", "21090 carries an unexplained residual of 786.00: known, still unidentified.", "Every new vendor is logged in the New Vendor List and sent to Jonathan weekly; no transaction posts without a vendor.", "Slack reminder on the 4th covers both accruals (CFL and Shoreline).", "Working file attached to each posted journal."];
-  const OPEN = [["FX basis for GYG GBP/EUR invoices", "The tool uses the live monthly average of ECB rates. August EUR matches the posted journal exactly; GBP can differ by 0.0001. Confirm with Dhwani."], ["23014 interest account and accrual convention", "open"], ["Source of the 80000 Amortization entry (1,925.00 a month)", "open"], ["Charters in the second half of the month are missing from the Xola export", "Ask Aanand or Louise for a count at close if the amounts are material."], ["CFL: posted journal (gross 306,387.43, implied base ≈ 397,906) vs SOP example (base 341,250.00)", "Same ad spend in both. Run the real Xola export to see which is right."]];
+  const OPEN = [["FX basis for GYG GBP/EUR invoices", "The tool uses the live monthly average of ECB rates. August EUR matches the posted journal exactly; GBP can differ by 0.0001. Confirm with Dhwani."], ["23014 interest account and accrual convention", "open"], ["Source of the 80000 Amortization entry (1,925.00 a month)", "open"], ["Charters in the second half of the month are missing from the Xola export", "Ask Aanand or Louise for a count at close if the amounts are material."], ["CFL: the posted September journal (gross 306,387.43) matches neither the new SOP example (gross 281,521.24, base 365,612.00) nor the 181,467 estimate in its tracking table", "Confirm which figure was actually posted for September."]];
   function renderChecklist() {
     const m = document.getElementById("main"); m.textContent = ""; m.append(h("h1", {}, "Review before sending to Jonathan"), h("p", { class: "sub" }, "SOP section 5, plus the open items from section 6."));
     const key = "med-checks-" + state.month; let done = {}; try { done = JSON.parse(LS.get(key) || "{}"); } catch (e) { /* ignore */ }
